@@ -67,6 +67,10 @@ fn main() {
         .allowlist_function("iree_.*")
         .allowlist_type("iree_.*")
         .allowlist_var("IREE_.*")
+        // bindgen renders iree_allocator_t as opaque (its `self` field name
+        // defeats the generator), which is the wrong size for by-value passing.
+        // Blocklist it and define the real layout by hand in src/lib.rs.
+        .blocklist_type("iree_allocator_t")
         // Many IREE helpers are `static inline`; emit C wrappers for them.
         .wrap_static_fns(true)
         .wrap_static_fns_path(&extern_c);
