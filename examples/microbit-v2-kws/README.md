@@ -1,8 +1,27 @@
-# micro:bit v2 keyword-spotting demo
+# micro:bit v2 IREE firmware
 
-Live "yes"/"no" keyword spotting on the BBC micro:bit v2: a TFLite-Micro
-`micro_speech` model, compiled ahead of time with IREE and executed on-device by
-the `iree-embedded` runtime.
+On-device IREE inference on the BBC micro:bit v2 (nRF52833, Cortex-M4F).
+
+## Working today: `simple_mul` smoke firmware
+
+`src/main.rs` runs the `simple_mul` model (4 x 2 = 8) through the IREE runtime
+on the board and prints the result over RTT. With the board plugged in:
+
+```sh
+cd examples/microbit-v2-kws
+cargo run          # builds, flashes via probe-rs, streams defmt/RTT
+```
+
+Expected output: `simple_mul result = [8.0, 8.0, 8.0, 8.0]`.
+
+Footprint: ~373 KB flash / ~69 KB RAM (incl. a 64 KB arena), within the
+512 KB / 128 KB budget. This proves the IREE runtime executes on real hardware.
+
+## Planned: live keyword spotting
+
+Live "yes"/"no" keyword spotting using a TFLite-Micro `micro_speech` model and
+the onboard PDM microphone (see the design doc). The pipeline below documents
+that target workflow.
 
 ## Hardware
 
