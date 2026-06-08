@@ -1,0 +1,10 @@
+[build]
+target = "thumbv7em-none-eabihf"
+
+[target.thumbv7em-none-eabihf]
+runner = "probe-rs run --chip nRF52833_xxAA"
+rustflags = [
+  "-C", "link-arg=-Tlink.x",   # cortex-m-rt linker script
+  "-C", "link-arg=-Tdefmt.x",  # defmt RTT
+  "-C", "link-arg=-Tgot.x",    # discard empty .got (non-PIC)
+]

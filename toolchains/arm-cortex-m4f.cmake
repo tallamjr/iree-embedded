@@ -38,7 +38,7 @@ set(IREE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(IREE_BUILD_COMPILER OFF CACHE BOOL "" FORCE)
 
 set(ARM_CM_FLAGS "\
-    -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
+    -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -fno-pic -fno-pie \
     -include ${CMAKE_CURRENT_LIST_DIR}/iree_bm_config.h")
 
 set(CMAKE_C_FLAGS   "${ARM_CM_FLAGS} ${CMAKE_C_FLAGS}")

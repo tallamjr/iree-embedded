@@ -117,6 +117,9 @@ fn main() {
     if is_mcu {
         // Force the cross compiler (cc-rs otherwise picks Homebrew gcc), then
         // force-include the config and M4F flags so the wrapper ABI matches.
+        // cc-rs adds -fPIC by default; that emits GOT relocations the cortex-m
+        // linker script rejects. Force non-PIC.
+        wrappers.pic(false);
         wrappers
             .compiler("arm-none-eabi-gcc")
             .flag("-include")
@@ -124,7 +127,8 @@ fn main() {
             .flag("-mcpu=cortex-m4")
             .flag("-mthumb")
             .flag("-mfloat-abi=hard")
-            .flag("-mfpu=fpv4-sp-d16");
+            .flag("-mfpu=fpv4-sp-d16")
+            .flag("-fno-pic");
     } else if let Some(p) = &llvm_prefix {
         // macOS's newer linker rejects non-8-byte-aligned archive members;
         // llvm-ar pads them, the default `ar` does not.
