@@ -61,6 +61,8 @@ fn main() {
         .clang_arg(format!("-I{}", inc_flatcc.display()))
         .use_core()
         .ctypes_prefix("core::ffi")
+        // Emit enum constants as `IREE_FOO` rather than `iree_foo_e_IREE_FOO`.
+        .prepend_enum_name(false)
         // bindgen's generated size/align assertions misfire on IREE's vtable
         // and opaque types; the bindings themselves are correct.
         .layout_tests(false)

@@ -7,3 +7,5 @@ description = "Safe no_std Rust API for ML inference on Cortex-M via the IREE ru
 
 [dependencies]
 iree-embedded-sys = { path = "../iree-embedded-sys" }
+talc = { version = "4", default-features = false }
+spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"] }
