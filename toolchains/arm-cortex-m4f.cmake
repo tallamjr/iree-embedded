@@ -21,7 +21,8 @@ set(CMAKE_RANLIB arm-none-eabi-ranlib)
 set(CMAKE_CROSSCOMPILING ON CACHE BOOL "")
 
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_EXTENSIONS OFF)
+# GNU extensions on: IREE uses the `asm` keyword (not `__asm__`) in a few places.
+set(CMAKE_C_EXTENSIONS ON)
 
 # Bare-metal runtime configuration (single-threaded, no OS, no file IO).
 set(IREE_HAL_DRIVER_DEFAULTS OFF CACHE BOOL "" FORCE)
@@ -37,10 +38,8 @@ set(IREE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(IREE_BUILD_COMPILER OFF CACHE BOOL "" FORCE)
 
 set(ARM_CM_FLAGS "\
-    -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -ffreestanding \
-    -DIREE_PLATFORM_GENERIC=1 -DIREE_FILE_IO_ENABLE=0 \
-    -DIREE_TIME_NOW_FN=\"\{ return 0; \}\" \
-    -DIREE_DEVICE_SIZE_T=uint32_t -DPRIdsz=PRIu32")
+    -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
+    -include ${CMAKE_CURRENT_LIST_DIR}/iree_bm_config.h")
 
 set(CMAKE_C_FLAGS   "${ARM_CM_FLAGS} ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${ARM_CM_FLAGS} ${CMAKE_CXX_FLAGS}")
