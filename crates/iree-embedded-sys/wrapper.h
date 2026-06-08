@@ -1,0 +1,8 @@
+#include "iree/base/api.h"
+#include "iree/hal/api.h"
+#include "iree/modules/hal/module.h"
+#include "iree/vm/api.h"
+#include "iree/vm/bytecode/module.h"
+#include "iree/hal/drivers/local_sync/sync_device.h"
+#include "iree/hal/local/executable_loader.h"
+#include "iree/hal/local/loaders/embedded_elf_loader.h"
