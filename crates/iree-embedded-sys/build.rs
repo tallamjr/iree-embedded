@@ -28,6 +28,9 @@ fn main() {
             "runtime/src/iree/hal/local/loaders",
             "iree_hal_local_loaders_embedded_elf_loader",
         ),
+        // Third-party deps not merged into the unified archive.
+        ("build_tools/third_party/flatcc", "flatcc_parsing"),
+        ("build_tools/third_party/printf", "printf_printf"),
     ] {
         println!(
             "cargo:rustc-link-search=native={}",
@@ -43,12 +46,17 @@ fn main() {
     // not already) at Homebrew's libclang, so plain `cargo build`/`test` works
     // without manual environment setup.
     let mut extra_clang_args: Vec<String> = Vec::new();
+    let llvm_prefix = if cfg!(target_os = "macos") {
+        run_capture("brew", &["--prefix", "llvm"])
+    } else {
+        None
+    };
     if cfg!(target_os = "macos") {
         if let Some(sdk) = run_capture("xcrun", &["--show-sdk-path"]) {
             extra_clang_args.push(format!("-isysroot{sdk}"));
         }
         if std::env::var_os("LIBCLANG_PATH").is_none() {
-            if let Some(prefix) = run_capture("brew", &["--prefix", "llvm"]) {
+            if let Some(prefix) = &llvm_prefix {
                 std::env::set_var("LIBCLANG_PATH", format!("{prefix}/lib"));
             }
         }
@@ -85,13 +93,19 @@ fn main() {
         .expect("write bindings");
 
     // Compile the generated wrappers for the static-inline helpers.
-    cc::Build::new()
+    let mut wrappers = cc::Build::new();
+    wrappers
         .file(&extern_c)
         .include(&manifest)
         .include(&inc_src)
         .include(&inc_gen)
-        .include(&inc_flatcc)
-        .compile("iree_static_wrappers");
+        .include(&inc_flatcc);
+    // macOS's newer linker rejects archive members that are not 8-byte aligned;
+    // the default `ar` does not pad them, but `llvm-ar` does.
+    if let Some(prefix) = &llvm_prefix {
+        wrappers.archiver(format!("{prefix}/bin/llvm-ar"));
+    }
+    wrappers.compile("iree_static_wrappers");
 
     println!("cargo:rerun-if-changed=wrapper.h");
     println!("cargo:rerun-if-changed=build.rs");
