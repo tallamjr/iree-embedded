@@ -1,0 +1,9 @@
+[package]
+name = "iree-embedded"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Safe no_std Rust API for ML inference on Cortex-M via the IREE runtime."
+
+[dependencies]
+iree-embedded-sys = { path = "../iree-embedded-sys" }

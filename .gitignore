@@ -749,3 +749,8 @@ dkms.conf
 # out of the box. Generated runtime libs live under /runtime-build.
 !examples/**/*.o
 !examples/**/*.a
+
+# Local IREE source checkout + out-of-band runtime build (not committed; this
+# is the "build once, out of band" step, kept out of cargo and out of git).
+/.iree
+/runtime-build
