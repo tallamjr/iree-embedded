@@ -28,14 +28,16 @@ fn micro_speech_predicts_yes() {
     let input = Tensor::from_u8(&device, &[1, 49, 40, 1], YES_FEATURES).expect("input");
 
     let outputs = ctx.invoke(infer, &[&input], &arena).expect("invoke");
-    let mut scores = [0u8; 4];
-    outputs[0].read_into_u8(&device, &mut scores).expect("read");
+    // Softmax was stripped at compile time (argmax of logits == argmax of
+    // softmax), so the output is f32 logits [1, 4].
+    let mut logits = [0.0f32; 4];
+    outputs[0].read_into_f32(&device, &mut logits).expect("read");
 
-    let best = scores
+    let best = logits
         .iter()
         .enumerate()
-        .max_by_key(|(_, &v)| v)
+        .max_by(|(_, a), (_, b)| a.total_cmp(b))
         .map(|(i, _)| i)
         .unwrap();
-    assert_eq!(LABELS[best], "yes", "scores = {scores:?}");
+    assert_eq!(LABELS[best], "yes", "logits = {logits:?}");
 }
