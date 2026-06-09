@@ -108,18 +108,18 @@ unsafe extern "C" fn arena_ctl(
     inout_ptr: *mut *mut c_void,
 ) -> sys::iree_status_t {
     let arena = &*(self_ as *const Arena);
-    let cmd = command as u32;
+    let cmd = command;
 
-    if cmd == sys::IREE_ALLOCATOR_COMMAND_FREE as u32 {
+    if cmd == sys::IREE_ALLOCATOR_COMMAND_FREE {
         arena.free(*inout_ptr);
         *inout_ptr = core::ptr::null_mut();
         return ok();
     }
-    if cmd == sys::IREE_ALLOCATOR_COMMAND_MALLOC as u32
-        || cmd == sys::IREE_ALLOCATOR_COMMAND_CALLOC as u32
+    if cmd == sys::IREE_ALLOCATOR_COMMAND_MALLOC
+        || cmd == sys::IREE_ALLOCATOR_COMMAND_CALLOC
     {
         let byte_length = (*(params as *const sys::iree_allocator_alloc_params_t)).byte_length;
-        let zero = cmd == sys::IREE_ALLOCATOR_COMMAND_CALLOC as u32;
+        let zero = cmd == sys::IREE_ALLOCATOR_COMMAND_CALLOC;
         let p = arena.alloc(byte_length, zero);
         if p.is_null() {
             return oom();
@@ -127,7 +127,7 @@ unsafe extern "C" fn arena_ctl(
         *inout_ptr = p;
         return ok();
     }
-    if cmd == sys::IREE_ALLOCATOR_COMMAND_REALLOC as u32 {
+    if cmd == sys::IREE_ALLOCATOR_COMMAND_REALLOC {
         let new_len = (*(params as *const sys::iree_allocator_alloc_params_t)).byte_length;
         let p = arena.realloc(*inout_ptr, new_len);
         if p.is_null() {
