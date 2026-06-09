@@ -5,6 +5,9 @@ edition = "2021"
 publish = false
 description = "micro:bit v2 firmware running IREE inference (simple_mul smoke, then KWS)."
 
+[build-dependencies]
+cc = "1"
+
 [dependencies]
 iree-embedded = { path = "../../crates/iree-embedded" }
 cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
