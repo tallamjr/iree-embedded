@@ -1,32 +1,49 @@
-# micro:bit v2 IREE firmware
+# micro:bit v2 keyword spotting with IREE
 
-On-device IREE inference on the BBC micro:bit v2 (nRF52833, Cortex-M4F).
+On-device keyword spotting on the BBC micro:bit v2 (nRF52833, Cortex-M4F): the
+full pipeline runs on the chip.
 
-## Working today: `simple_mul` smoke firmware
+## What it does (works today)
 
-`src/main.rs` runs the `simple_mul` model (4 x 2 = 8) through the IREE runtime
-on the board and prints the result over RTT. With the board plugged in:
+`src/main.rs` runs the **complete KWS pipeline on-device**:
+
+1. a real 1-second "yes" recording is embedded in flash;
+2. the **TFLite-Micro audio front end** (vendored C, runs on-device) turns it
+   into a 49x40 spectrogram;
+3. the **micro_speech** model runs via the IREE runtime;
+4. the predicted keyword is printed over RTT.
 
 ```sh
 cd examples/microbit-v2-kws
 cargo run          # builds, flashes via probe-rs, streams defmt/RTT
 ```
 
-Expected output: `simple_mul result = [8.0, 8.0, 8.0, 8.0]`.
+Expected output: `KWS prediction = yes (expected 'yes')`.
 
-Footprint: ~373 KB flash / ~69 KB RAM (incl. a 64 KB arena), within the
-512 KB / 128 KB budget. This proves the IREE runtime executes on real hardware.
+Every stage is verified on the host: the on-device front end produces features
+**byte-identical** to the reference TensorFlow front end, and the IREE model
+matches the reference TFLite interpreter, so the deterministic on-device run
+predicts "yes". Footprint ~439 KB flash / ~80 KB RAM (64 KB IREE arena + 12 KB
+front-end pool), within the 512 KB / 128 KB budget.
 
-## Planned: live keyword spotting
+A `simple_mul` smoke firmware (proving just the runtime) is preserved in git
+history if you want the minimal check first.
 
-Live "yes"/"no" keyword spotting using a TFLite-Micro `micro_speech` model and
-the onboard PDM microphone (see the design doc). The pipeline below documents
-that target workflow.
+## Live microphone (remaining board-side step)
+
+The only part not yet wired is sourcing audio from the live mic instead of the
+embedded clip. Note a correction to the original plan: the micro:bit v2
+microphone is **analog**, not PDM. The Knowles SPU0410LR5H is read via the
+**SAADC on P0.05 (AIN3)**, with the mic powered by driving **P0.20 high**, and a
+~1.65 V DC bias (use gain ~1/4, subtract the mean, scale to int16). Feed those
+samples to `kws_features` exactly as the embedded clip is today; the front end
+and model are identical. This stage needs the physical board to calibrate
+gain/offset, so it is left as the documented next step.
 
 ## Hardware
 
 - BBC micro:bit v2 (Nordic nRF52833, Cortex-M4F, 128 KB RAM)
-- Onboard PDM microphone
+- Onboard analog MEMS microphone (SAADC on P0.05; enable P0.20)
 - A USB cable (the onboard DAPLink debugger handles flashing and logging, no
   external probe needed)
 
