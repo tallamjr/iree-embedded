@@ -1,0 +1,112 @@
+name: runtime
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Host runtime build + the crate test suite against it.
+  host:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update && sudo apt-get install -y ninja-build cmake
+          else
+            brew install ninja
+          fi
+      - name: Build host runtime
+        run: scripts/build-runtime-host.sh
+      - name: Run crate tests against it
+        run: |
+          rustup toolchain install stable --profile minimal
+          cargo test -p iree-embedded
+      - name: Package artefact
+        run: scripts/package-runtime.sh .iree/build/host host-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-host-${{ matrix.os }}
+          path: dist/*.tar.gz
+
+  # Bare-metal cross builds. cortex-m4f is validated on hardware
+  # (micro:bit v2); cortex-m7 and cortex-m33 are CI-build-only for now.
+  mcu:
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [cortex-m4f, cortex-m7, cortex-m33]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build cmake gcc-arm-none-eabi
+      - name: Install pinned IREE host tools
+        run: |
+          source scripts/iree-version.env
+          python3 -m venv .venv
+          .venv/bin/pip install "iree-base-compiler==$IREE_PIP_VERSION" "iree-base-runtime==$IREE_PIP_VERSION"
+      - name: Cross-build runtime
+        run: scripts/build-runtime-mcu.sh ${{ matrix.target }}
+      - name: Package artefact
+        run: |
+          BUILD=.iree/build/mcu
+          [ "${{ matrix.target }}" = "cortex-m4f" ] || BUILD=.iree/build/${{ matrix.target }}
+          scripts/package-runtime.sh "$BUILD" ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.target }}
+          path: dist/*.tar.gz
+
+  # Firmware must keep building against the fresh cortex-m4f runtime.
+  firmware:
+    needs: mcu
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build cmake gcc-arm-none-eabi
+      - uses: actions/download-artifact@v4
+        with:
+          name: runtime-cortex-m4f
+          path: dist
+      - name: Unpack runtime artefact
+        run: |
+          mkdir -p runtime-unpacked
+          tar -xzf dist/*.tar.gz -C runtime-unpacked --strip-components=1
+      - name: Build firmware against the artefact
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup target add thumbv7em-none-eabihf
+          export IREE_RUNTIME_DIR="$PWD/runtime-unpacked/build"
+          export IREE_SRC_DIR="$PWD/runtime-unpacked/src"
+          cd examples/microbit-v2-kws
+          cargo build --release
+
+  # Tagged builds publish the artefacts as a GitHub release.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [host, mcu, firmware]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.tar.gz
+          generate_release_notes: true

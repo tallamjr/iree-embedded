@@ -6,9 +6,12 @@ fn main() {
     let target = std::env::var("TARGET").unwrap_or_default();
     let is_mcu = target.starts_with("thumbv7em");
 
-    let src = root.join(".iree/src");
-    // The out-of-band IREE runtime build (see `.iree/setup.sh` for host,
-    // `.iree/setup-mcu.sh` for the board). build.rs only LINKS this.
+    // The out-of-band IREE runtime build (scripts/build-runtime-{host,mcu}.sh,
+    // or an unpacked CI artefact). build.rs only LINKS this. For an artefact,
+    // set IREE_RUNTIME_DIR=<unpacked>/build and IREE_SRC_DIR=<unpacked>/src.
+    let src = std::env::var("IREE_SRC_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| root.join(".iree/src"));
     let build_dir = std::env::var("IREE_RUNTIME_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
@@ -143,6 +146,7 @@ fn main() {
     println!("cargo:rerun-if-changed=wrapper.h");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=IREE_RUNTIME_DIR");
+    println!("cargo:rerun-if-env-changed=IREE_SRC_DIR");
 }
 
 /// Run a command and return its trimmed stdout, or None if it fails.
