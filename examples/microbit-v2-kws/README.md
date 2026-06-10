@@ -150,3 +150,74 @@ loads it and executes it through IREE's local-sync runtime, wrapped by the safe
 `iree-embedded` API. Each inference, raw int16 audio samples are turned into
 the audio spectrogram the model expects (the on-device feature pipeline) before
 being handed to `invoke`. See the design doc for the full architecture.
+
+## Memory layout
+
+Actual addresses and sizes from the built ELF (`arm-none-eabi-nm` / `size`):
+
+```
+nRF52833 RAM map: 0x20000000 .. 0x20020000 (128 KiB total)
+
++------------+----------------------------------------+-----------+------------------------------------------+
+| Address    | Region                                 | Size      | What lives there                         |
++------------+----------------------------------------+-----------+------------------------------------------+
+| 0x20020000 | _stack_start (top of RAM)              |           |                                          |
+|     ...    |   STACK (grows downward)               | ~38.3 KiB | main + IREE call frames + the 8 KiB VM   |
+|            |                                        |           | stack alloca'd per invoke + kernel       |
+|            |                                        |           | frames. NO guard below: overflow walks   |
+|            |                                        |           | straight into the RTT buffer and bss.    |
+| 0x200166F4 | __sheap (dead: _sbrk always fails)     |     0     | newlib heap permanently disabled         |
++------------+----------------------------------------+-----------+------------------------------------------+
+| 0x200162F4 | defmt RTT ring buffer (.uninit)        |   1 KiB   | log bytes read out by probe-rs           |
++------------+----------------------------------------+-----------+------------------------------------------+
+| .bss       | (zeroed at boot)                       | 86.9 KiB  |                                          |
+| 0x20016180 |   g_state  (front-end state struct)    |  0.4 KiB  | big buffers live in FE_POOL, not here    |
+| 0x200159D4 |   g_spec   (rolling 49x40 spectrogram) |  1960 B   | the whole "1 s of audio" as features     |
+| 0x20011B44 |   MIC_BUF  (2 x 4000 x i16)            | 15.6 KiB  | SAADC EasyDMA double buffer              |
+| 0x2000EB40 |   FE_POOL  (bump allocator)            |  12 KiB   | backs our malloc/calloc overrides;       |
+|            |                                        |           | front end allocates once at boot         |
+| 0x20000B40 |   HEAP     (IREE arena, talc)          |  56 KiB   | EVERY IREE allocation: instance, device, |
+|            |                                        |           | context, tensors, transient blocks       |
++------------+----------------------------------------+-----------+------------------------------------------+
+| .data      | (copied from flash at boot)            |  2.8 KiB  | _SEGGER_RTT control block @ 0x20000008,  |
+| 0x20000000 |                                        |           | newlib tables (impure_data, locale)      |
++------------+----------------------------------------+-----------+------------------------------------------+
+
+FLASH (512 KiB): ~425 KiB used. Model weights AND kernel machine code execute in place from here: zero RAM.
+```
+
+Note the split: the model's *static* parts (trained weights and compiled
+kernels, both read-only) stay in flash and cost no RAM at all. The RAM map
+above is the *working state* of running an inference: input/output tensors and
+per-layer activation buffers (allocated from `HEAP`), audio capture, the
+spectrogram, and the stack. Mutable state cannot live in flash.
+
+### Arenas, and where the "heap" went
+
+There is **no system heap**: `_sbrk` always fails, so newlib's `malloc` can
+never grow memory. Dynamic allocation still happens, but only inside two
+fixed, statically declared pools:
+
+- **`HEAP` (56 KiB, the IREE arena).** Every IREE runtime allocation goes
+  through the [talc](https://crates.io/crates/talc) allocator running inside
+  this static array. It behaves like a heap (alloc and free; IREE's objects
+  are refcounted), but its footprint is a compile-time constant.
+- **`FE_POOL` (12 KiB).** A bump allocator behind our `malloc`/`calloc`
+  overrides, used once at boot by the TFLite-Micro front end for its state.
+  Nothing is ever freed, by design.
+
+If you know TFLite-Micro's `tensor_arena` from Arduino sketches, `HEAP` is its
+direct counterpart: a fixed buffer the runtime must live inside, sized
+empirically. The difference is the machinery. TFLM's arena is a one-shot
+planner (a fixed tensor layout computed at init, nothing freed) and reports
+its peak via `arena_used_bytes()`; IREE needs a real general-purpose allocator
+because buffers come and go per invoke, so undersizing shows up at runtime.
+That is what `LAST_ALLOC_FAIL_SIZE` is for: an out-of-memory failure reports
+the size of the allocation that did not fit.
+
+The stack has **no guard**: it grows down from the top of RAM into bss. If it
+overflows (deep IREE call chains plus the 8 KiB VM stack), it silently
+corrupts the RTT buffer and whatever bss sits highest, which presents as
+"firmware went quiet" rather than a fault. Keep static buffers lean; this is
+why the 1 s model window is stored as 1960 bytes of features rather than
+32 KiB of audio.
