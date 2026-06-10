@@ -55,3 +55,73 @@ int kws_features(const int16_t* samples, int nsamp, uint8_t* out) {
   }
   return frame;
 }
+
+// ---- Streaming mode (live mic) --------------------------------------------
+// The reference micro_speech pipeline never re-windows audio: the front end
+// runs continuously (noise reduction and PCAN adapt over time) and the model
+// sees a rolling 49x40 spectrogram that shifts as new 20 ms frames complete.
+
+#include <string.h>
+
+static uint8_t g_spec[49 * 40];
+static int g_spec_frames = 0; // valid trailing frames in g_spec (<= 49)
+
+// Feed live samples into the continuously-running front end, applying DC
+// removal (`mean`) and digital `gain` on the fly. Completed frames are
+// appended to the rolling spectrogram. Returns frames produced by this call.
+int kws_frontend_push(const int16_t* samples, int n, int32_t mean,
+                      int32_t gain) {
+  int16_t scratch[480];
+  int produced = 0;
+  int i = 0;
+  while (i < n) {
+    int chunk = (n - i) < 480 ? (n - i) : 480;
+    for (int k = 0; k < chunk; k++) {
+      int32_t v = ((int32_t)samples[i + k] - mean) * gain;
+      if (v > 32767) v = 32767;
+      if (v < -32768) v = -32768;
+      scratch[k] = (int16_t)v;
+    }
+    int consumed = 0;
+    while (consumed < chunk) {
+      size_t num_read = 0;
+      struct FrontendOutput o = FrontendProcessSamples(
+          &g_state, scratch + consumed, chunk - consumed, &num_read);
+      consumed += (int)num_read;
+      if (o.size > 0) {
+        if (g_spec_frames == 49) {
+          memmove(g_spec, g_spec + 40, 48 * 40);
+          g_spec_frames = 48;
+        }
+        uint8_t* dst = g_spec + g_spec_frames * 40;
+        for (int c = 0; c < 40 && c < (int)o.size; c++) {
+          int v = o.values[c];
+          if (v > 255) v = 255;
+          if (v < 0) v = 0;
+          dst[c] = (uint8_t)v;
+        }
+        g_spec_frames++;
+        produced++;
+      }
+      if (num_read == 0) break;
+    }
+    i += chunk;
+  }
+  return produced;
+}
+
+// Copy the rolling spectrogram into `out` (49*40 bytes), zero-padding the
+// oldest frames while the stream warms up. Returns the valid frame count.
+int kws_frontend_window(uint8_t* out) {
+  int pad = 49 - g_spec_frames;
+  memset(out, 0, (size_t)pad * 40);
+  memcpy(out + (size_t)pad * 40, g_spec, (size_t)g_spec_frames * 40);
+  return g_spec_frames;
+}
+
+// Reset the streaming state: called between the boot self-test (which runs
+// unrelated audio through the shared FrontendState) and the live stream.
+void kws_frontend_reset(void) {
+  FrontendReset(&g_state);
+  g_spec_frames = 0;
+}

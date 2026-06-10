@@ -14,11 +14,31 @@ fn main() {
     println!("cargo:rustc-link-search={}", out.display());
 
     compile_frontend();
+    link_models(&out);
     link_newlib();
 
     println!("cargo:rerun-if-changed=memory.x");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=csrc/kws_frontend.c");
+}
+
+/// Archive the iree-compile static-library kernel objects (real Cortex-M
+/// machine code; see README phase 1) so the linker pulls in just the model the
+/// firmware references via its `*_library_query` symbol.
+fn link_models(out: &Path) {
+    let lib = out.join("libkws_models.a");
+    let _ = std::fs::remove_file(&lib);
+    let status = Command::new("arm-none-eabi-ar")
+        .arg("crs")
+        .arg(&lib)
+        .arg("models/simple_mul.o")
+        .arg("models/micro_speech.o")
+        .status()
+        .expect("arm-none-eabi-ar not found");
+    assert!(status.success(), "archiving model objects failed");
+    println!("cargo:rustc-link-lib=static=kws_models");
+    println!("cargo:rerun-if-changed=models/simple_mul.o");
+    println!("cargo:rerun-if-changed=models/micro_speech.o");
 }
 
 /// Compile the vendored TFLite-Micro audio front end (+ int16 kissfft) and the
@@ -51,6 +71,9 @@ fn compile_frontend() {
     for flag in cpu {
         c.flag(flag);
     }
+    // The profile's -Oz makes the FFT-heavy front end ~2x slower; speed is
+    // what keeps the streaming loop inside its 250 ms real-time budget.
+    c.opt_level(3);
     c.pic(false).warnings(false);
     c.compile("kws_frontend_c");
 
@@ -63,6 +86,7 @@ fn compile_frontend() {
     for flag in cpu {
         cxx.flag(flag);
     }
+    cxx.opt_level(3);
     cxx.flag("-fno-exceptions")
         .flag("-fno-rtti")
         .pic(false)

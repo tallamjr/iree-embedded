@@ -313,6 +313,7 @@ dependencies = [
  "defmt 0.3.100",
  "defmt-rtt",
  "iree-embedded",
+ "nrf52833-pac",
  "panic-probe",
 ]
 
@@ -345,6 +346,16 @@ checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
 dependencies = [
  "memchr",
  "minimal-lexical",
+]
+
+[[package]]
+name = "nrf52833-pac"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10e1358255b360cdc816dd7b6ef81be8c8499c0998277e5249bed222bd0f5241"
+dependencies = [
+ "cortex-m",
+ "vcell",
 ]
 
 [[package]]

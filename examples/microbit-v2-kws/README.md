@@ -5,40 +5,66 @@ full pipeline runs on the chip.
 
 ## What it does (works today)
 
-`src/main.rs` runs the **complete KWS pipeline on-device**:
+`src/main.rs` runs the **complete live KWS pipeline on-device**:
 
-1. a real 1-second "yes" recording is embedded in flash;
-2. the **TFLite-Micro audio front end** (vendored C, runs on-device) turns it
-   into a 49x40 spectrogram;
-3. the **micro_speech** model runs via the IREE runtime;
-4. the predicted keyword is printed over RTT.
+1. at boot, a self-test classifies an embedded 1-second "yes" recording;
+2. then the loop captures **live audio from the onboard analog mic** (SAADC on
+   P0.05/AIN3, 16 kHz via EasyDMA, see `src/mic.rs`);
+3. the **TFLite-Micro audio front end** (vendored C, runs on-device) turns
+   each 1 s window into a 49x40 spectrogram;
+4. the **micro_speech** model runs via the IREE runtime (kernels statically
+   linked, executing from flash);
+5. the predicted keyword is printed over RTT, once per second.
 
 ```sh
 cd examples/microbit-v2-kws
 cargo run          # builds, flashes via probe-rs, streams defmt/RTT
 ```
 
-Expected output: `KWS prediction = yes (expected 'yes')`.
+Expected output over RTT (then say "yes" or "no" near the mic):
 
-Every stage is verified on the host: the on-device front end produces features
+```
+INFO self-test on embedded clip: yes (expected 'yes'), logits = [-12.69, -3.90, 9.94, -3.28]
+INFO listening: say 'yes' or 'no' near the mic (window = 1 s)
+INFO heard: silence | level = 31 | logits = [-0.53, -3.81, -2.66, -6.30]
+INFO heard: yes | level = ... | logits = [...]
+```
+
+`level` is the post-gain mean absolute sample value: ~96-112 in a quiet room,
+200-900 for speech near the mic (a `==> DETECTED` line additionally requires
+`level >= 160` and a logit margin of 2). If speech barely moves it, raise
+`GAIN` in `src/mic.rs`. Labels are `[silence, unknown, yes, no]` and logits
+print in that order.
+
+Every stage also runs on the host: the on-device front end produces features
 **byte-identical** to the reference TensorFlow front end, and the IREE model
 matches the reference TFLite interpreter, so the deterministic on-device run
-predicts "yes". Footprint ~439 KB flash / ~80 KB RAM (64 KB IREE arena + 12 KB
-front-end pool), within the 512 KB / 128 KB budget.
+predicts "yes". The IREE arena is 64 KB plus a 12 KB front-end pool, within
+the 512 KB flash / 128 KB RAM budget. Note `.cargo/config.toml` sets
+`DEFMT_LOG=info`; defmt filters at compile time and without it only `error!`
+output survives.
 
 A `simple_mul` smoke firmware (proving just the runtime) is preserved in git
 history if you want the minimal check first.
 
-## Live microphone (remaining board-side step)
+## Live microphone
 
-The only part not yet wired is sourcing audio from the live mic instead of the
-embedded clip. Note a correction to the original plan: the micro:bit v2
-microphone is **analog**, not PDM. The Knowles SPU0410LR5H is read via the
-**SAADC on P0.05 (AIN3)**, with the mic powered by driving **P0.20 high**, and a
-~1.65 V DC bias (use gain ~1/4, subtract the mean, scale to int16). Feed those
-samples to `kws_features` exactly as the embedded clip is today; the front end
-and model are identical. This stage needs the physical board to calibrate
-gain/offset, so it is left as the documented next step.
+Implemented in `src/mic.rs`. The micro:bit v2 microphone is **analog**, not
+PDM: the Knowles SPU0410LR5H is read via the **SAADC on P0.05 (AIN3)**. Three
+hardware details matter (all verified against the V2.00 schematic):
+
+- **P0.20 (RUN_MIC) is the mic's power supply**, not an enable line: it feeds
+  the mic through 105R and the mic LED through 68R (~19 mA), so the GPIO must
+  be **high-drive** or the rail collapses.
+- The mic output is **AC-coupled (1 uF) and re-biased to ~97 mV** by a
+  33k/1k divider, so the signal at the pin is millivolts.
+- The SAADC must therefore measure 0..150 mV: **gain 4 against the internal
+  0.6 V reference** (37 uV/LSB), the same operating point CODAL uses. A wider
+  range buries speech below one LSB, which looks like a dead mic.
+
+Sampling is 16 kHz single-ended (SAADC local timer), DMA'd straight into RAM;
+the firmware subtracts the per-chunk mean and applies a x16 digital gain
+before the front end.
 
 ## Hardware
 
@@ -72,14 +98,23 @@ iree-compile \
   --iree-hal-target-device=local \
   --iree-hal-local-target-device-backends=llvm-cpu \
   --iree-llvmcpu-target-triple=thumbv7em-none-eabihf \
+  --iree-llvmcpu-target-cpu=cortex-m4 \
+  --iree-llvmcpu-target-float-abi=hard \
   --iree-llvmcpu-link-embedded=false \
+  --iree-llvmcpu-link-static \
   --iree-llvmcpu-static-library-output-path=model.o \
+  --iree-vm-target-index-bits=32 \
   model.mlir -o model.vmfb
 ```
 
-This produces `model.o`, `model.h`, and `model.vmfb`, which live in this folder
+This produces `model.o`, `model.h`, and `model.vmfb`, which live in `models/`
 and are committed so the demo builds out of the box. `model.vmfb` is embedded
-with `include_bytes!`; `model.o` is linked into the firmware.
+with `include_vmfb!`; `model.o` is archived by `build.rs` and linked into the
+firmware, so the kernels execute in place from flash (the embedded-ELF loader
+would instead copy them into RAM, which the nRF52833 cannot spare; its
+64 KiB-aligned segments alone need 192 KiB). The firmware registers the
+`*_library_query` symbol from `model.h` with
+`Device::local_sync_static`.
 
 The compile target triple **must match** the firmware target: the kernels in
 `model.o` are real Cortex-M machine code.
@@ -98,23 +133,20 @@ one command:
 2. flashes it to the nRF52833 over USB (`probe-rs run --chip nRF52833_xxAA`),
 3. attaches and streams `defmt` logs back to your terminal.
 
-Say "yes" or "no" near the microphone; detections print over RTT and light an
-LED on the display.
+After the boot self-test on the embedded "yes" clip, the firmware classifies
+one second of live microphone audio per loop and prints the verdict over RTT.
 
-## On-device test
+## Smoke check
 
-```sh
-cargo test
-```
-
-probe-rs auto-detects the `embedded-test` binary and runs it on the board. The
-`simple_mul` smoke test asserts the runtime returns `[8, 8, 8, 8]` before the
-heavier model is trusted.
+To prove just the runtime before trusting the heavier model, point `main.rs` at
+the committed `simple_mul` artefacts (`models/simple_mul.{vmfb,o,h}`, query
+symbol `simple_mul_dispatch_0_library_query`, entry `module.simple_mul`) and
+`cargo run`; it must print `[8.0, 8.0, 8.0, 8.0]`.
 
 ## How it works
 
 The model is compiled to a self-contained artefact on the host; the board only
 loads it and executes it through IREE's local-sync runtime, wrapped by the safe
-`iree-embedded` API. Each inference, raw PDM samples are turned into the audio
-spectrogram the model expects (the on-device feature pipeline) before being
-handed to `invoke`. See the design doc for the full architecture.
+`iree-embedded` API. Each inference, raw int16 audio samples are turned into
+the audio spectrogram the model expects (the on-device feature pipeline) before
+being handed to `invoke`. See the design doc for the full architecture.
