@@ -1,6 +1,6 @@
 //! The VM instance: process-wide IREE state with HAL types registered.
 
-use crate::{check, Arena, Result};
+use crate::{Arena, Result, check};
 use iree_embedded_sys as sys;
 
 pub struct Instance {

@@ -5,7 +5,7 @@
 //! TFLite-Micro audio front end (see scripts in .iree/), and the model output
 //! matches the reference TFLite interpreter byte-for-byte.
 
-use iree_embedded::{include_vmfb, Arena, Context, Device, Instance, Tensor};
+use iree_embedded::{Arena, Context, Device, Instance, Tensor, include_vmfb};
 
 static VMFB: &[u8] = include_vmfb!("fixtures/micro_speech.vmfb");
 static YES_FEATURES: &[u8] = include_bytes!("fixtures/yes_features.bin");
@@ -31,7 +31,9 @@ fn micro_speech_predicts_yes() {
     // Softmax was stripped at compile time (argmax of logits == argmax of
     // softmax), so the output is f32 logits [1, 4].
     let mut logits = [0.0f32; 4];
-    outputs[0].read_into_f32(&device, &mut logits).expect("read");
+    outputs[0]
+        .read_into_f32(&device, &mut logits)
+        .expect("read");
 
     let best = logits
         .iter()

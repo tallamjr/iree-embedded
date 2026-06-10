@@ -66,10 +66,13 @@ fn main() {
     } else {
         None
     };
-    if cfg!(target_os = "macos") && std::env::var_os("LIBCLANG_PATH").is_none() {
-        if let Some(p) = &llvm_prefix {
-            std::env::set_var("LIBCLANG_PATH", format!("{p}/lib"));
-        }
+    if cfg!(target_os = "macos")
+        && std::env::var_os("LIBCLANG_PATH").is_none()
+        && let Some(p) = &llvm_prefix
+    {
+        // SAFETY: build scripts are single-threaded at this point; no
+        // other thread can be reading the environment concurrently.
+        unsafe { std::env::set_var("LIBCLANG_PATH", format!("{p}/lib")) };
     }
 
     if is_mcu {
@@ -81,10 +84,10 @@ fn main() {
         if let Some(sysroot) = run_capture("arm-none-eabi-gcc", &["-print-sysroot"]) {
             clang_args.push(format!("-isystem{sysroot}/include"));
         }
-    } else if cfg!(target_os = "macos") {
-        if let Some(sdk) = run_capture("xcrun", &["--show-sdk-path"]) {
-            clang_args.push(format!("-isysroot{sdk}"));
-        }
+    } else if cfg!(target_os = "macos")
+        && let Some(sdk) = run_capture("xcrun", &["--show-sdk-path"])
+    {
+        clang_args.push(format!("-isysroot{sdk}"));
     }
 
     let mut builder = bindgen::Builder::default()
@@ -102,6 +105,9 @@ fn main() {
         // bindgen renders iree_allocator_t opaque (its `self` field); define the
         // real layout by hand in src/lib.rs instead.
         .blocklist_type("iree_allocator_t")
+        // Edition 2024: unsafe fn bodies are no longer implicitly unsafe;
+        // make generated code wrap its unsafe operations in unsafe blocks.
+        .wrap_unsafe_ops(true)
         // Many IREE helpers are `static inline`; emit C wrappers for them.
         .wrap_static_fns(true)
         .wrap_static_fns_path(&extern_c);
@@ -156,9 +162,5 @@ fn run_capture(cmd: &str, args: &[&str]) -> Option<String> {
         return None;
     }
     let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    if s.is_empty() {
-        None
-    } else {
-        Some(s)
-    }
+    if s.is_empty() { None } else { Some(s) }
 }

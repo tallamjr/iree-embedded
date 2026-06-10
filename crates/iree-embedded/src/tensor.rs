@@ -2,7 +2,7 @@
 
 use core::ffi::c_void;
 
-use crate::{check, Device, Result};
+use crate::{Device, Result, check};
 use iree_embedded_sys as sys;
 
 pub struct Tensor {
@@ -15,7 +15,7 @@ impl Tensor {
         Self::from_bytes(
             device,
             shape,
-            sys::IREE_HAL_ELEMENT_TYPE_FLOAT_32 as u32,
+            sys::IREE_HAL_ELEMENT_TYPE_FLOAT_32,
             data.as_ptr() as *const c_void,
             core::mem::size_of_val(data),
         )
@@ -27,7 +27,7 @@ impl Tensor {
         Self::from_bytes(
             device,
             shape,
-            sys::IREE_HAL_ELEMENT_TYPE_UINT_8 as u32,
+            sys::IREE_HAL_ELEMENT_TYPE_UINT_8,
             data.as_ptr() as *const c_void,
             data.len(),
         )
@@ -35,7 +35,11 @@ impl Tensor {
 
     /// Copy the buffer contents back to the host as f32.
     pub fn read_into_f32(&self, device: &Device, out: &mut [f32]) -> Result<()> {
-        self.read_bytes(device, out.as_mut_ptr() as *mut c_void, core::mem::size_of_val(out))
+        self.read_bytes(
+            device,
+            out.as_mut_ptr() as *mut c_void,
+            core::mem::size_of_val(out),
+        )
     }
 
     /// Copy the buffer contents back to the host as u8.

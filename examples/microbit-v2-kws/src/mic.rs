@@ -36,7 +36,12 @@ pub struct Mic {
 impl Mic {
     /// Start free-running capture into `ring`. The buffer must live (and not
     /// be otherwise touched) for as long as the `Mic` exists.
-    pub fn start(p0: &pac::P0, ppi: &pac::PPI, saadc: pac::SAADC, ring: &'static mut [[i16; CHUNK]; RING]) -> Self {
+    pub fn start(
+        p0: &pac::P0,
+        ppi: &pac::PPI,
+        saadc: pac::SAADC,
+        ring: &'static mut [[i16; CHUNK]; RING],
+    ) -> Self {
         // Power the mic and give it time to settle (~100 ms). RUN_MIC is not
         // a control line: the GPIO itself supplies the mic and its LED, so it
         // must be high-drive (CODAL does the same) or the rail sags to
@@ -84,10 +89,7 @@ impl Mic {
 
         let ring = ring.as_mut_ptr();
         // Arm slot 0, start, then pre-arm slot 1 and kick the sample timer.
-        saadc
-            .result
-            .ptr
-            .write(|w| unsafe { w.bits(ring as u32) });
+        saadc.result.ptr.write(|w| unsafe { w.bits(ring as u32) });
         saadc
             .result
             .maxcnt

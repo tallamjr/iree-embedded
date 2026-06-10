@@ -5,7 +5,7 @@
 //! and the static-library loader (MCU; the kernels are compiled into the
 //! firmware image and execute in place from flash, costing no RAM).
 
-use crate::{check, Arena, Result};
+use crate::{Arena, Result, check};
 use iree_embedded_sys as sys;
 
 /// The `*_library_query` entry point emitted by
@@ -71,7 +71,7 @@ impl Device {
         alloc: sys::iree_allocator_t,
     ) -> Result<Self> {
         unsafe {
-            let id = sys::iree_make_cstring_view(b"local-sync\0".as_ptr() as *const _);
+            let id = sys::iree_make_cstring_view(c"local-sync".as_ptr());
 
             let mut device_allocator = core::ptr::null_mut();
             let status =
@@ -108,7 +108,6 @@ impl Device {
 }
 
 impl Device {
-
     pub(crate) fn raw(&self) -> *mut sys::iree_hal_device_t {
         self.raw
     }

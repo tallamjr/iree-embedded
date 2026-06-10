@@ -1,6 +1,6 @@
 //! End-to-end: load simple_mul.vmfb, invoke it, and check 4 * 2 == 8.
 
-use iree_embedded::{include_vmfb, Arena, Context, Device, Instance, Tensor};
+use iree_embedded::{Arena, Context, Device, Instance, Tensor, include_vmfb};
 
 static VMFB: &[u8] = include_vmfb!("fixtures/simple_mul.vmfb");
 

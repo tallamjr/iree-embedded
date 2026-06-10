@@ -47,7 +47,13 @@ impl Error {
 
 impl core::fmt::Debug for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Error({:?}, raw={}, {})", self.code, self.raw, self.message())
+        write!(
+            f,
+            "Error({:?}, raw={}, {})",
+            self.code,
+            self.raw,
+            self.message()
+        )
     }
 }
 
@@ -78,12 +84,12 @@ pub(crate) fn check(status: sys::iree_status_t) -> Result<()> {
 fn map(code: u32) -> StatusCode {
     use StatusCode::*;
     match code {
-        c if c == sys::IREE_STATUS_ABORTED as u32 => Aborted,
-        c if c == sys::IREE_STATUS_RESOURCE_EXHAUSTED as u32 => OutOfMemory,
-        c if c == sys::IREE_STATUS_NOT_FOUND as u32 => NotFound,
-        c if c == sys::IREE_STATUS_INVALID_ARGUMENT as u32 => InvalidArgument,
-        c if c == sys::IREE_STATUS_UNIMPLEMENTED as u32 => Unimplemented,
-        c if c == sys::IREE_STATUS_INTERNAL as u32 => Internal,
+        sys::IREE_STATUS_ABORTED => Aborted,
+        sys::IREE_STATUS_RESOURCE_EXHAUSTED => OutOfMemory,
+        sys::IREE_STATUS_NOT_FOUND => NotFound,
+        sys::IREE_STATUS_INVALID_ARGUMENT => InvalidArgument,
+        sys::IREE_STATUS_UNIMPLEMENTED => Unimplemented,
+        sys::IREE_STATUS_INTERNAL => Internal,
         _ => Unknown,
     }
 }

@@ -1,4 +1,10 @@
 #![cfg_attr(not(test), no_std)]
+// `Error` inlines a 192-byte IREE status message buffer, so `Result` Err
+// variants are large. Deliberate: this is `no_std` with no global allocator,
+// and the most important error to report is allocator exhaustion, so the
+// message must not itself allocate. The fallible calls here are millisecond
+// FFI operations; a ~200-byte move on the error path is noise.
+#![allow(clippy::result_large_err)]
 
 /// Embed a compiled `.vmfb` as a 64-byte-aligned `&'static [u8]`.
 ///

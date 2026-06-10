@@ -1,7 +1,7 @@
 [package]
 name = "microbit-v2-kws"
-version = "0.0.0"
-edition = "2021"
+version = "0.1.0"
+edition = "2024"
 publish = false
 description = "micro:bit v2 firmware running IREE inference (simple_mul smoke, then KWS)."
 

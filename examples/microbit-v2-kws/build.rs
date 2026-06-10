@@ -45,7 +45,12 @@ fn link_models(out: &Path) {
 /// C shim. C files via gcc, C++ files via g++.
 fn compile_frontend() {
     let mf = "vendor/tensorflow/lite/experimental/microfrontend/lib";
-    let cpu = ["-mcpu=cortex-m4", "-mthumb", "-mfloat-abi=hard", "-mfpu=fpv4-sp-d16"];
+    let cpu = [
+        "-mcpu=cortex-m4",
+        "-mthumb",
+        "-mfloat-abi=hard",
+        "-mfpu=fpv4-sp-d16",
+    ];
 
     let mut c = cc::Build::new();
     c.compiler("arm-none-eabi-gcc");

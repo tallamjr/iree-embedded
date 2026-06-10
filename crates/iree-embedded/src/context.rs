@@ -5,7 +5,7 @@
 
 use core::marker::PhantomData;
 
-use crate::{check, Arena, Device, Instance, Result, Tensor};
+use crate::{Arena, Device, Instance, Result, Tensor, check};
 use iree_embedded_sys as sys;
 
 /// A resolved entry-point function. `iree_vm_function_t` is a plain value

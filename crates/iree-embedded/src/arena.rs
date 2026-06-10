@@ -75,11 +75,15 @@ impl Arena {
         if user.is_null() {
             return;
         }
-        let base = (user as *mut u8).sub(HEADER);
-        let byte_length = (base as *const usize).read();
-        let layout = Layout::from_size_align_unchecked(byte_length + HEADER, ALIGN);
-        let mut talc = self.talc.lock();
-        talc.free(NonNull::new_unchecked(base), layout);
+        // SAFETY: per the caller contract, a length header written by `alloc`
+        // sits HEADER bytes below `user`.
+        unsafe {
+            let base = (user as *mut u8).sub(HEADER);
+            let byte_length = (base as *const usize).read();
+            let layout = Layout::from_size_align_unchecked(byte_length + HEADER, ALIGN);
+            let mut talc = self.talc.lock();
+            talc.free(NonNull::new_unchecked(base), layout);
+        }
     }
 
     /// SAFETY: `user` must be null or a pointer previously returned by `alloc`.
@@ -87,19 +91,24 @@ impl Arena {
         if user.is_null() {
             return self.alloc(new_len, false);
         }
-        let base = (user as *mut u8).sub(HEADER);
-        let old_len = (base as *const usize).read();
-        let new_ptr = self.alloc(new_len, false);
-        if new_ptr.is_null() {
-            return core::ptr::null_mut();
+        // SAFETY: per the caller contract, a length header written by `alloc`
+        // sits HEADER bytes below `user`; both blocks are at least
+        // `old_len.min(new_len)` bytes.
+        unsafe {
+            let base = (user as *mut u8).sub(HEADER);
+            let old_len = (base as *const usize).read();
+            let new_ptr = self.alloc(new_len, false);
+            if new_ptr.is_null() {
+                return core::ptr::null_mut();
+            }
+            core::ptr::copy_nonoverlapping(
+                user as *const u8,
+                new_ptr as *mut u8,
+                old_len.min(new_len),
+            );
+            self.free(user);
+            new_ptr
         }
-        core::ptr::copy_nonoverlapping(
-            user as *const u8,
-            new_ptr as *mut u8,
-            old_len.min(new_len),
-        );
-        self.free(user);
-        new_ptr
     }
 }
 
@@ -115,36 +124,39 @@ unsafe extern "C" fn arena_ctl(
     params: *const c_void,
     inout_ptr: *mut *mut c_void,
 ) -> sys::iree_status_t {
-    let arena = &*(self_ as *const Arena);
-    let cmd = command;
+    // SAFETY: IREE invokes this with `self_` pointing at a live `Arena` and
+    // `params`/`inout_ptr` valid for the given command, per the
+    // `iree_allocator_ctl_fn_t` contract.
+    unsafe {
+        let arena = &*(self_ as *const Arena);
+        let cmd = command;
 
-    if cmd == sys::IREE_ALLOCATOR_COMMAND_FREE {
-        arena.free(*inout_ptr);
-        *inout_ptr = core::ptr::null_mut();
-        return ok();
-    }
-    if cmd == sys::IREE_ALLOCATOR_COMMAND_MALLOC
-        || cmd == sys::IREE_ALLOCATOR_COMMAND_CALLOC
-    {
-        let byte_length = (*(params as *const sys::iree_allocator_alloc_params_t)).byte_length;
-        let zero = cmd == sys::IREE_ALLOCATOR_COMMAND_CALLOC;
-        let p = arena.alloc(byte_length, zero);
-        if p.is_null() {
-            return oom();
+        if cmd == sys::IREE_ALLOCATOR_COMMAND_FREE {
+            arena.free(*inout_ptr);
+            *inout_ptr = core::ptr::null_mut();
+            return ok();
         }
-        *inout_ptr = p;
-        return ok();
-    }
-    if cmd == sys::IREE_ALLOCATOR_COMMAND_REALLOC {
-        let new_len = (*(params as *const sys::iree_allocator_alloc_params_t)).byte_length;
-        let p = arena.realloc(*inout_ptr, new_len);
-        if p.is_null() {
-            return oom();
+        if cmd == sys::IREE_ALLOCATOR_COMMAND_MALLOC || cmd == sys::IREE_ALLOCATOR_COMMAND_CALLOC {
+            let byte_length = (*(params as *const sys::iree_allocator_alloc_params_t)).byte_length;
+            let zero = cmd == sys::IREE_ALLOCATOR_COMMAND_CALLOC;
+            let p = arena.alloc(byte_length, zero);
+            if p.is_null() {
+                return oom();
+            }
+            *inout_ptr = p;
+            return ok();
         }
-        *inout_ptr = p;
-        return ok();
+        if cmd == sys::IREE_ALLOCATOR_COMMAND_REALLOC {
+            let new_len = (*(params as *const sys::iree_allocator_alloc_params_t)).byte_length;
+            let p = arena.realloc(*inout_ptr, new_len);
+            if p.is_null() {
+                return oom();
+            }
+            *inout_ptr = p;
+            return ok();
+        }
+        unimplemented_status()
     }
-    unimplemented_status()
 }
 
 #[inline]
