@@ -71,21 +71,28 @@ kernel library, IREE compiles.
 
 The end-to-end demo works on real hardware: live keyword spotting
 ("yes"/"no") from the BBC micro:bit v2's onboard analog microphone, with the
-full pipeline on the nRF52833 (Cortex-M4F, 128 KB RAM): SAADC capture, the
-TFLite-Micro audio front end, and the micro_speech model under IREE,
+full pipeline on the nRF52833 (Cortex-M4F, 128 KB RAM): `embassy-nrf` SAADC
+capture, a pure-Rust audio front end, and the micro_speech model under IREE,
 re-classified four times per second. See
 [`examples/microbit-v2-kws`](examples/microbit-v2-kws/README.md) for the
 demo, the model-compilation workflow, and a documented RAM map.
 
-Stack: `cortex-m-rt`, `nrf52833-pac`, `defmt` over RTT, `probe-rs run`.
+The example is **pure Rust end to end**: the only non-Rust artefacts are the
+IREE runtime (vendored C, bound by `iree-embedded`) and the model itself
+(`iree-compile` output, i.e. machine code). The audio front end is a
+byte-exact Rust port of the TFLite-Micro reference, bundled inside the
+example.
+
+Stack: `embassy-executor`, `embassy-nrf` (the nRF device HAL), `cortex-m-rt`,
+`defmt` over RTT, `probe-rs run`.
 
 ## Workspace
 
-| Crate                      | Purpose                                                                   |
-| -------------------------- | ------------------------------------------------------------------------- |
-| `crates/iree-embedded-sys` | Raw `bindgen` FFI to the prebuilt IREE runtime (the only `unsafe` crate). |
-| `crates/iree-embedded`     | Safe `no_std` public API.                                                 |
-| `examples/microbit-v2-kws` | Live keyword-spotting demo binary.                                        |
+| Crate                      | Purpose                                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `crates/iree-embedded-sys` | Raw `bindgen` FFI to the prebuilt IREE runtime (the only FFI crate).                                                     |
+| `crates/iree-embedded`     | Safe `no_std` public API.                                                                                                |
+| `examples/microbit-v2-kws` | Live keyword-spotting demo; a self-contained workspace that bundles its own pure-Rust audio front end (`kws-frontend/`). |
 
 ## Building
 
@@ -112,12 +119,12 @@ the firmware links and embeds; the exact flags are in the example README.
 The word "toolchain" appears in three distinct senses here, so to be precise
 about what is installed versus configured:
 
-| Thing                          | What it is                                        | Where it comes from        |
-| ------------------------------ | ------------------------------------------------- | -------------------------- |
-| Rust + `thumbv7em-none-eabihf` | compiles the firmware and crates                  | `rustup`                   |
-| `arm-none-eabi-gcc`            | compiles the IREE C runtime and vendored C        | package manager            |
-| `iree-compile`                 | compiles the *model* to Cortex-M kernels          | `pip` (pinned version)     |
-| `toolchains/*.cmake`           | NOT compilers: per-CPU flag presets (M4F/M7/M33)  | this repo                  |
+| Thing                          | What it is                                       | Where it comes from    |
+| ------------------------------ | ------------------------------------------------ | ---------------------- |
+| Rust + `thumbv7em-none-eabihf` | compiles the firmware and crates                 | `rustup`               |
+| `arm-none-eabi-gcc`            | cross-compiles the IREE C runtime                | package manager        |
+| `iree-compile`                 | compiles the _model_ to Cortex-M kernels         | `pip` (pinned version) |
+| `toolchains/*.cmake`           | NOT compilers: per-CPU flag presets (M4F/M7/M33) | this repo              |
 
 Only the cross-compiled bare-metal IREE runtime cannot be downloaded from
 anywhere upstream (the IREE project publishes host pip packages only); that
@@ -140,9 +147,9 @@ runtime and even the same compiled model artefacts unchanged. A new board
 
 1. `memory.x` for the chip's flash/RAM (and app offset if a bootloader stays
    resident),
-2. the chip's PAC and its audio-capture peripheral (the Nano's mic is PDM,
-   which the nRF52840 decodes in hardware, simpler than the micro:bit's
-   analog SAADC path),
+2. the chip's device HAL (e.g. `embassy-nrf` here, `embassy-stm32` elsewhere)
+   and its audio-capture peripheral (the Nano's mic is PDM, which the nRF52840
+   decodes in hardware, simpler than the micro:bit's analog SAADC path),
 3. a flash/log transport: an SWD probe for `probe-rs` + `defmt`, or the
    stock bootloader plus UART logging,
 4. arena and buffer sizes for the RAM budget (256 KB on the nRF52840 is

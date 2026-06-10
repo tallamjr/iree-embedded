@@ -1,16 +1,24 @@
 #![no_std]
 #![no_main]
 
-mod mic;
-
 use core::ffi::c_void;
 use core::sync::atomic::Ordering;
 
-use cortex_m_rt::entry;
 use defmt_rtt as _;
+use embassy_executor::Spawner;
+use embassy_nrf::gpio::{Level, Output, OutputDrive};
+use embassy_nrf::saadc::{
+    CallbackResult, ChannelConfig, Config, Gain, Reference, Resolution, Saadc, Time,
+};
+use embassy_nrf::timer::Frequency;
+use embassy_nrf::{bind_interrupts, saadc};
 use iree_embedded::{Arena, Context, Device, Instance, Result, Tensor, include_vmfb};
 use kws_frontend::{FEATURE_BYTES, Frontend};
 use panic_probe as _;
+
+bind_interrupts!(struct Irqs {
+    SAADC => saadc::InterruptHandler;
+});
 
 // The keyword-spotting model (TFLite-Micro micro_speech, softmax stripped).
 // The VM program is embedded here; its kernels are real Cortex-M machine code
@@ -42,21 +50,27 @@ const DETECT_MARGIN: f32 = 2.0;
 // ... and the window must contain real acoustic energy. At the SAADC's
 // 0..150 mV operating point, quiet-room ambient measures level ~96-112 and
 // near-mic speech 200-900 (calibrated on hardware), so gate between them.
-// Note the model's "no" class is trigger-happy on ambient noise (an upstream
-// micro_speech trait); this gate is what keeps it honest.
 const SPEECH_LEVEL: i32 = 160;
 
+// Digital gain applied after DC removal; the mic swings only millivolts.
+const GAIN: i32 = 16;
+
+// 16 kHz mono. One SAADC buffer is 250 ms; the front end runs continuously and
+// the rolling 1 s spectrogram is classified each time a buffer completes.
+const SAMPLE_RATE: u32 = 16_000;
+const CHUNK: usize = SAMPLE_RATE as usize / 4;
+
 // IREE arena (micro_speech needs ~50 KB across context + invoke transients).
+// Large zero-initialised buffers live in .bss as statics (no stack cost); the
+// single `&mut` borrow each is taken once, hence the addr_of_mut! access.
 static mut HEAP: [u8; 56 * 1024] = [0; 56 * 1024];
 
-// Double-buffered live audio: DMA fills one 250 ms chunk while the CPU
-// processes the other. The 1 s model window lives as *features*, not audio:
-// the front end runs continuously and keeps a rolling 49x40 spectrogram.
-static mut MIC_BUF: [[i16; mic::CHUNK]; mic::RING] = [[0; mic::CHUNK]; mic::RING];
-
-// The audio front end (pure Rust, byte-exact port of the TFLM reference);
-// ~13 KiB of fixed-point state, kept in a static rather than on the stack.
+// The pure-Rust audio front end (~14 KiB of fixed-point state).
 static mut FRONTEND: Frontend = Frontend::new();
+
+// SAADC EasyDMA double buffer: one chunk fills while the CPU classifies the
+// other. `[samples][channels]`, one channel.
+static mut SAADC_BUFS: [[[i16; 1]; CHUNK]; 2] = [[[0; 1]; CHUNK]; 2];
 
 // newlib's malloc/_sbrk reference the `end` heap symbol; the IREE runtime
 // allocates from the arena instead, so the libc heap can never grow.
@@ -70,17 +84,42 @@ fn ms_since(start: u32) -> u32 {
     cortex_m::peripheral::DWT::cycle_count().wrapping_sub(start) / 64_000
 }
 
-#[entry]
-fn main() -> ! {
+#[embassy_executor::main]
+async fn main(_spawner: Spawner) {
+    let p = embassy_nrf::init(Default::default());
     defmt::info!("iree-embedded KWS: live mic -> front end -> micro_speech on micro:bit v2");
-    // Enable the cycle counter so every stage can be timed.
-    let mut cp = cortex_m::Peripherals::take().unwrap();
-    cp.DCB.enable_trace();
-    cp.DWT.enable_cycle_counter();
 
-    // SAFETY: single core; exclusive access to HEAP, taken once.
+    // Enable the cycle counter so each window's compute can be timed.
+    let cp = cortex_m::Peripherals::take().unwrap();
+    let mut dcb = cp.DCB;
+    let mut dwt = cp.DWT;
+    dcb.enable_trace();
+    dwt.enable_cycle_counter();
+
+    // SAFETY: single core; each static is borrowed exactly once, here.
     let arena = unsafe { Arena::new(&mut *core::ptr::addr_of_mut!(HEAP)) };
-    if let Err(e) = run(&arena) {
+    let fe = unsafe { &mut *core::ptr::addr_of_mut!(FRONTEND) };
+
+    // RUN_MIC (P0.20) is the mic's power supply, not an enable line: it feeds
+    // the mic (105R) and a ~19 mA LED (68R), so it must be high-drive or the
+    // rail sags. Give it ~100 ms to settle.
+    let _run_mic = Output::new(p.P0_20, Level::High, OutputDrive::HighDrive);
+    cortex_m::asm::delay(6_400_000); // ~100 ms at 64 MHz
+
+    // SAADC on P0.05 (AIN3), single-ended. The mic signal is AC-coupled and
+    // re-biased to ~97 mV, so measure 0..150 mV: gain 4 against the internal
+    // 0.6 V reference, 12-bit (the operating point CODAL uses, and the one the
+    // SPEECH_LEVEL/GAIN constants were calibrated against).
+    let mut config = Config::default();
+    config.resolution = Resolution::_12BIT;
+    let mut ch = ChannelConfig::single_ended(p.P0_05);
+    ch.gain = Gain::GAIN4;
+    ch.reference = Reference::INTERNAL;
+    ch.time = Time::_10US;
+    let adc = Saadc::new(p.SAADC, Irqs, config, [ch]);
+    adc.calibrate().await;
+
+    if let Err(e) = run(&arena, fe, adc, p.TIMER0, p.PPI_CH0, p.PPI_CH1).await {
         loop {
             defmt::error!(
                 "failed: {} (raw {}): {} | largest failed alloc = {} bytes",
@@ -89,37 +128,36 @@ fn main() -> ! {
                 e.message(),
                 iree_embedded::LAST_ALLOC_FAIL_SIZE.load(Ordering::Relaxed)
             );
-            cortex_m::asm::delay(64_000_000); // ~1s
+            cortex_m::asm::delay(64_000_000); // ~1 s
         }
     }
-    unreachable!()
 }
 
-fn run(arena: &Arena) -> Result<()> {
-    // SAFETY: single core; exclusive access to FRONTEND, taken once.
-    let fe = unsafe { &mut *core::ptr::addr_of_mut!(FRONTEND) };
+async fn run(
+    arena: &Arena,
+    fe: &mut Frontend,
+    mut adc: Saadc<'_, 1>,
+    timer: embassy_nrf::Peri<'static, embassy_nrf::peripherals::TIMER0>,
+    ppi0: embassy_nrf::Peri<'static, embassy_nrf::peripherals::PPI_CH0>,
+    ppi1: embassy_nrf::Peri<'static, embassy_nrf::peripherals::PPI_CH1>,
+) -> Result<()> {
     fe.init();
 
     // Bring up the IREE pipeline once; every window reuses it.
-    defmt::debug!("step: instance");
     let instance = Instance::new(arena)?;
-    defmt::debug!("step: device");
     let device = Device::local_sync_static(arena, &[micro_speech_nosm_linked_library_query])?;
-    defmt::debug!("step: context");
     let ctx = Context::new(&instance, &device, VMFB, arena)?;
-    defmt::debug!("step: resolve");
     let infer = ctx.resolve("module.tf2onnx")?;
 
     // Boot self-test on the embedded "yes" clip: proves the whole pipeline
-    // before live audio (which depends on mic gain and room noise) runs.
+    // (front end + model) before live audio, which depends on mic gain and
+    // room noise, runs.
     let audio = &AUDIO.0;
     // SAFETY: the bytes are 4-aligned and an even length of little-endian i16.
     let clip: &[i16] =
         unsafe { core::slice::from_raw_parts(audio.as_ptr() as *const i16, audio.len() / 2) };
     let mut features = [0u8; FEATURE_BYTES];
-    defmt::debug!("step: self-test front end");
     fe.features_oneshot(clip, &mut features);
-    defmt::debug!("step: self-test classify");
     let (label, logits) = classify(&ctx, &device, infer, &features, arena)?;
     defmt::info!(
         "self-test on embedded clip: {} (expected 'yes'), logits = {}",
@@ -127,53 +165,31 @@ fn run(arena: &Arena) -> Result<()> {
         logits
     );
 
-    // A/B: the same clip through the STREAMING path (chunked push + rolling
-    // window). Must reproduce the one-shot features byte-for-byte; if not,
-    // the streaming front end is at fault rather than the live mic audio.
-    fe.reset();
-    for c in clip.chunks(mic::CHUNK) {
-        fe.push(c, 0, 1);
-    }
-    let mut sfeat = [0u8; FEATURE_BYTES];
-    let sframes = fe.window(&mut sfeat);
-    let (slabel, slogits) = classify(&ctx, &device, infer, &sfeat, arena)?;
-    let sum_oneshot: u32 = features.iter().map(|&b| b as u32).sum();
-    let sum_stream: u32 = sfeat.iter().map(|&b| b as u32).sum();
-    defmt::info!(
-        "streaming self-test: {} ({} frames), logits = {} | feature sums: one-shot {} vs streaming {}",
-        slabel,
-        sframes,
-        slogits,
-        sum_oneshot,
-        sum_stream
-    );
-
-    // Live loop: gapless double-buffered capture; the front end streams and
-    // the rolling 1 s spectrogram is classified every 250 ms.
-    // SAFETY: nothing else takes the peripherals in this firmware, and
-    // MIC_BUF is referenced only here, once.
-    let p = unsafe { nrf52833_pac::Peripherals::steal() };
-    let mut mic = unsafe {
-        mic::Mic::start(
-            &p.P0,
-            &p.PPI,
-            p.SAADC,
-            &mut *core::ptr::addr_of_mut!(MIC_BUF),
-        )
-    };
-    // Drop the self-test's residue from the front-end state.
+    // Live loop: gapless double-buffered capture. `run_task_sampler` fills one
+    // 250 ms buffer while the previous one is classified in the callback (~130
+    // ms compute, comfortably inside the 250 ms budget).
     fe.reset();
     defmt::info!("listening: say 'yes' or 'no' near the mic (sliding 1 s window, 4x/s)");
 
     let mut cooldown: u32 = 0;
-    loop {
-        let chunk = mic.wait_chunk();
+    let mut result: Result<()> = Ok(());
+    // SAFETY: the SAADC buffers are referenced only here, once.
+    let bufs = unsafe { &mut *core::ptr::addr_of_mut!(SAADC_BUFS) };
+    // Internal timer at 16 MHz / 1000 = 16 kHz sample rate.
+    adc.run_task_sampler(timer, ppi0, ppi1, Frequency::F16MHz, 1000, bufs, |buf| {
         let t0 = cortex_m::peripheral::DWT::cycle_count();
+        let samples: &[i16] = buf.as_flattened();
 
-        let (mean, level) = mean_and_level(chunk);
-        fe.push(chunk, mean, mic::GAIN);
+        let (mean, level) = mean_and_level(samples);
+        fe.push(samples, mean, GAIN);
         fe.window(&mut features);
-        let (label, logits) = classify(&ctx, &device, infer, &features, arena)?;
+        let (label, logits) = match classify(&ctx, &device, infer, &features, arena) {
+            Ok(v) => v,
+            Err(e) => {
+                result = Err(e);
+                return CallbackResult::Stop;
+            }
+        };
 
         let compute = ms_since(t0);
         if compute > 240 {
@@ -201,7 +217,11 @@ fn run(arena: &Arena) -> Result<()> {
             compute,
             logits
         );
-    }
+        CallbackResult::Continue
+    })
+    .await;
+
+    result
 }
 
 /// Run the model over a 49x40 feature window.
@@ -238,5 +258,5 @@ fn mean_and_level(chunk: &[i16]) -> (i32, i32) {
     for &x in chunk {
         dev += (x as i32 - mean).abs();
     }
-    (mean, dev / n * mic::GAIN)
+    (mean, dev / n * GAIN)
 }
