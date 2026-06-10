@@ -10,11 +10,17 @@ full pipeline runs on the chip.
 1. at boot, a self-test classifies an embedded 1-second "yes" recording;
 2. then the loop captures **live audio from the onboard analog mic** (SAADC on
    P0.05/AIN3, 16 kHz via EasyDMA, see `src/mic.rs`);
-3. the **TFLite-Micro audio front end** (vendored C, runs on-device) turns
-   each 1 s window into a 49x40 spectrogram;
+3. the **`kws-frontend` crate** (a pure-Rust, `no_std` port of the TFLite-Micro
+   audio front end, byte-exact against the C reference) turns each 1 s window
+   into a 49x40 spectrogram;
 4. the **micro_speech** model runs via the IREE runtime (kernels statically
    linked, executing from flash);
 5. the predicted keyword is printed over RTT, once per second.
+
+Everything above is **pure Rust**. The only non-Rust artefacts are the IREE
+runtime (a vendored C library this project provides safe bindings over) and the
+model itself (`model.o`/`model.vmfb`, the ahead-of-time output of
+`iree-compile`, i.e. machine code, not source).
 
 ```sh
 cd examples/microbit-v2-kws
@@ -36,11 +42,12 @@ INFO heard: yes | level = ... | logits = [...]
 `GAIN` in `src/mic.rs`. Labels are `[silence, unknown, yes, no]` and logits
 print in that order.
 
-Every stage also runs on the host: the on-device front end produces features
-**byte-identical** to the reference TensorFlow front end, and the IREE model
-matches the reference TFLite interpreter, so the deterministic on-device run
-predicts "yes". The IREE arena is 64 KB plus a 12 KB front-end pool, within
-the 512 KB flash / 128 KB RAM budget. Note `.cargo/config.toml` sets
+Every stage also runs on the host: `kws-frontend`'s golden-vector tests assert
+its output is **byte-identical** to the reference TensorFlow front end (so the
+deterministic on-device run is provably the same as the hardware-validated C
+version it replaced), and the IREE model matches the reference TFLite
+interpreter. The IREE arena is 56 KB and the front end ~14 KB of inline state,
+within the 512 KB flash / 128 KB RAM budget. Note `.cargo/config.toml` sets
 `DEFMT_LOG=info`; defmt filters at compile time and without it only `error!`
 output survives.
 
@@ -162,22 +169,19 @@ nRF52833 RAM map: 0x20000000 .. 0x20020000 (128 KiB total)
 | Address    | Region                                 | Size      | What lives there                         |
 +------------+----------------------------------------+-----------+------------------------------------------+
 | 0x20020000 | _stack_start (top of RAM)              |           |                                          |
-|     ...    |   STACK (grows downward)               | ~38.3 KiB | main + IREE call frames + the 8 KiB VM   |
+|     ...    |   STACK (grows downward)               | ~39 KiB   | main + IREE call frames + the 8 KiB VM   |
 |            |                                        |           | stack alloca'd per invoke + kernel       |
 |            |                                        |           | frames. NO guard below: overflow walks   |
 |            |                                        |           | straight into the RTT buffer and bss.    |
-| 0x200166F4 | __sheap (dead: _sbrk always fails)     |     0     | newlib heap permanently disabled         |
+| 0x200167B4 | __sheap (dead: _sbrk always fails)     |     0     | newlib heap permanently disabled         |
 +------------+----------------------------------------+-----------+------------------------------------------+
-| 0x200162F4 | defmt RTT ring buffer (.uninit)        |   1 KiB   | log bytes read out by probe-rs           |
-+------------+----------------------------------------+-----------+------------------------------------------+
-| .bss       | (zeroed at boot)                       | 86.9 KiB  |                                          |
-| 0x20016180 |   g_state  (front-end state struct)    |  0.4 KiB  | big buffers live in FE_POOL, not here    |
-| 0x200159D4 |   g_spec   (rolling 49x40 spectrogram) |  1960 B   | the whole "1 s of audio" as features     |
-| 0x20011B44 |   MIC_BUF  (2 x 4000 x i16)            | 15.6 KiB  | SAADC EasyDMA double buffer              |
-| 0x2000EB40 |   FE_POOL  (bump allocator)            |  12 KiB   | backs our malloc/calloc overrides;       |
-|            |                                        |           | front end allocates once at boot         |
+| .bss       | (zeroed at boot)                       | 87.1 KiB  |                                          |
+| 0x200129C0 |   FRONTEND (kws_frontend::Frontend)    | 14.2 KiB  | all front-end state inline: FFT twiddles,|
+|            |                                        |           | filterbank weights, rolling spectrogram  |
+| 0x2000EB40 |   MIC_BUF  (2 x 4000 x i16)            | 15.6 KiB  | SAADC EasyDMA double buffer              |
 | 0x20000B40 |   HEAP     (IREE arena, talc)          |  56 KiB   | EVERY IREE allocation: instance, device, |
 |            |                                        |           | context, tensors, transient blocks       |
+|            |   (defmt RTT ring buffer also in bss)  |   1 KiB   | log bytes read out by probe-rs           |
 +------------+----------------------------------------+-----------+------------------------------------------+
 | .data      | (copied from flash at boot)            |  2.8 KiB  | _SEGGER_RTT control block @ 0x20000008,  |
 | 0x20000000 |                                        |           | newlib tables (impure_data, locale)      |
@@ -190,21 +194,21 @@ Note the split: the model's *static* parts (trained weights and compiled
 kernels, both read-only) stay in flash and cost no RAM at all. The RAM map
 above is the *working state* of running an inference: input/output tensors and
 per-layer activation buffers (allocated from `HEAP`), audio capture, the
-spectrogram, and the stack. Mutable state cannot live in flash.
+front-end state, and the stack. Mutable state cannot live in flash.
 
 ### Arenas, and where the "heap" went
 
 There is **no system heap**: `_sbrk` always fails, so newlib's `malloc` can
-never grow memory. Dynamic allocation still happens, but only inside two
-fixed, statically declared pools:
+never grow memory (the C front end that once needed a `malloc`/`calloc` shim
+is gone). The one dynamic allocator is the IREE arena:
 
 - **`HEAP` (56 KiB, the IREE arena).** Every IREE runtime allocation goes
   through the [talc](https://crates.io/crates/talc) allocator running inside
   this static array. It behaves like a heap (alloc and free; IREE's objects
   are refcounted), but its footprint is a compile-time constant.
-- **`FE_POOL` (12 KiB).** A bump allocator behind our `malloc`/`calloc`
-  overrides, used once at boot by the TFLite-Micro front end for its state.
-  Nothing is ever freed, by design.
+
+Everything else is a plain static: `FRONTEND` holds the whole front-end state
+inline (no heap, no `unsafe`), and `MIC_BUF` is the audio capture ring.
 
 If you know TFLite-Micro's `tensor_arena` from Arduino sketches, `HEAP` is its
 direct counterpart: a fixed buffer the runtime must live inside, sized
@@ -219,5 +223,5 @@ The stack has **no guard**: it grows down from the top of RAM into bss. If it
 overflows (deep IREE call chains plus the 8 KiB VM stack), it silently
 corrupts the RTT buffer and whatever bss sits highest, which presents as
 "firmware went quiet" rather than a fault. Keep static buffers lean; this is
-why the 1 s model window is stored as 1960 bytes of features rather than
-32 KiB of audio.
+why the 1 s model window is stored as features (1960 bytes inside `FRONTEND`)
+rather than 32 KiB of audio.

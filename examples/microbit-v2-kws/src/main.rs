@@ -4,11 +4,12 @@
 mod mic;
 
 use core::ffi::c_void;
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::Ordering;
 
 use cortex_m_rt::entry;
 use defmt_rtt as _;
 use iree_embedded::{Arena, Context, Device, Instance, Result, Tensor, include_vmfb};
+use kws_frontend::{FEATURE_BYTES, Frontend};
 use panic_probe as _;
 
 // The keyword-spotting model (TFLite-Micro micro_speech, softmax stripped).
@@ -53,54 +54,15 @@ static mut HEAP: [u8; 56 * 1024] = [0; 56 * 1024];
 // the front end runs continuously and keeps a rolling 49x40 spectrogram.
 static mut MIC_BUF: [[i16; mic::CHUNK]; mic::RING] = [[0; mic::CHUNK]; mic::RING];
 
-// Small bump pool backing libc malloc/calloc for the front end's one-time state
-// allocation (it never frees during operation).
-const POOL: usize = 12 * 1024;
-static mut FE_POOL: [u8; POOL] = [0; POOL];
-static FE_OFF: AtomicUsize = AtomicUsize::new(0);
+// The audio front end (pure Rust, byte-exact port of the TFLM reference);
+// ~13 KiB of fixed-point state, kept in a static rather than on the stack.
+static mut FRONTEND: Frontend = Frontend::new();
 
-#[unsafe(no_mangle)]
-pub extern "C" fn malloc(size: usize) -> *mut c_void {
-    let align = 8usize;
-    let off = FE_OFF.load(Ordering::Relaxed);
-    let start = (off + align - 1) & !(align - 1);
-    let end = start + size;
-    if end > POOL {
-        return core::ptr::null_mut();
-    }
-    FE_OFF.store(end, Ordering::Relaxed);
-    // SAFETY: single-threaded; [start, end) is a fresh, in-bounds region.
-    unsafe { (core::ptr::addr_of_mut!(FE_POOL) as *mut u8).add(start) as *mut c_void }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn calloc(n: usize, sz: usize) -> *mut c_void {
-    let total = n.saturating_mul(sz);
-    let p = malloc(total);
-    if !p.is_null() {
-        // SAFETY: malloc returned a valid `total`-byte region.
-        unsafe { core::ptr::write_bytes(p as *mut u8, 0, total) };
-    }
-    p
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn free(_ptr: *mut c_void) {}
-
-// newlib's malloc/_sbrk reference the `end` heap symbol; we use pools instead.
+// newlib's malloc/_sbrk reference the `end` heap symbol; the IREE runtime
+// allocates from the arena instead, so the libc heap can never grow.
 #[unsafe(no_mangle)]
 pub extern "C" fn _sbrk(_incr: isize) -> *mut c_void {
     -1isize as *mut c_void
-}
-
-unsafe extern "C" {
-    fn kws_frontend_init() -> i32;
-    // One-shot (resets state): used for the boot self-test on the clip.
-    fn kws_features(samples: *const i16, n: i32, out: *mut u8) -> i32;
-    // Streaming (state runs continuously): used for the live mic.
-    fn kws_frontend_reset();
-    fn kws_frontend_push(samples: *const i16, n: i32, mean: i32, gain: i32) -> i32;
-    fn kws_frontend_window(out: *mut u8) -> i32;
 }
 
 /// Milliseconds elapsed since `start` (DWT cycle counter, 64 MHz core clock).
@@ -134,12 +96,9 @@ fn main() -> ! {
 }
 
 fn run(arena: &Arena) -> Result<()> {
-    // SAFETY: first and only use of the front end this boot.
-    unsafe {
-        if kws_frontend_init() == 0 {
-            defmt::warn!("front end init failed");
-        }
-    }
+    // SAFETY: single core; exclusive access to FRONTEND, taken once.
+    let fe = unsafe { &mut *core::ptr::addr_of_mut!(FRONTEND) };
+    fe.init();
 
     // Bring up the IREE pipeline once; every window reuses it.
     defmt::debug!("step: instance");
@@ -157,10 +116,9 @@ fn run(arena: &Arena) -> Result<()> {
     // SAFETY: the bytes are 4-aligned and an even length of little-endian i16.
     let clip: &[i16] =
         unsafe { core::slice::from_raw_parts(audio.as_ptr() as *const i16, audio.len() / 2) };
-    let mut features = [0u8; 49 * 40];
+    let mut features = [0u8; FEATURE_BYTES];
     defmt::debug!("step: self-test front end");
-    // SAFETY: features holds 49*40 bytes; clip is a valid slice.
-    unsafe { kws_features(clip.as_ptr(), clip.len() as i32, features.as_mut_ptr()) };
+    fe.features_oneshot(clip, &mut features);
     defmt::debug!("step: self-test classify");
     let (label, logits) = classify(&ctx, &device, infer, &features, arena)?;
     defmt::info!(
@@ -172,16 +130,12 @@ fn run(arena: &Arena) -> Result<()> {
     // A/B: the same clip through the STREAMING path (chunked push + rolling
     // window). Must reproduce the one-shot features byte-for-byte; if not,
     // the streaming front end is at fault rather than the live mic audio.
-    // SAFETY: same contracts as the one-shot path above.
-    unsafe {
-        kws_frontend_reset();
-        for c in clip.chunks(mic::CHUNK) {
-            kws_frontend_push(c.as_ptr(), c.len() as i32, 0, 1);
-        }
+    fe.reset();
+    for c in clip.chunks(mic::CHUNK) {
+        fe.push(c, 0, 1);
     }
-    let mut sfeat = [0u8; 49 * 40];
-    // SAFETY: sfeat holds 49*40 bytes.
-    let sframes = unsafe { kws_frontend_window(sfeat.as_mut_ptr()) };
+    let mut sfeat = [0u8; FEATURE_BYTES];
+    let sframes = fe.window(&mut sfeat);
     let (slabel, slogits) = classify(&ctx, &device, infer, &sfeat, arena)?;
     let sum_oneshot: u32 = features.iter().map(|&b| b as u32).sum();
     let sum_stream: u32 = sfeat.iter().map(|&b| b as u32).sum();
@@ -207,8 +161,8 @@ fn run(arena: &Arena) -> Result<()> {
             &mut *core::ptr::addr_of_mut!(MIC_BUF),
         )
     };
-    // SAFETY: drop the self-test's residue from the shared front-end state.
-    unsafe { kws_frontend_reset() };
+    // Drop the self-test's residue from the front-end state.
+    fe.reset();
     defmt::info!("listening: say 'yes' or 'no' near the mic (sliding 1 s window, 4x/s)");
 
     let mut cooldown: u32 = 0;
@@ -217,10 +171,8 @@ fn run(arena: &Arena) -> Result<()> {
         let t0 = cortex_m::peripheral::DWT::cycle_count();
 
         let (mean, level) = mean_and_level(chunk);
-        // SAFETY: chunk is a valid slice; the front end copies via scratch.
-        unsafe { kws_frontend_push(chunk.as_ptr(), chunk.len() as i32, mean, mic::GAIN) };
-        // SAFETY: features holds 49*40 bytes.
-        unsafe { kws_frontend_window(features.as_mut_ptr()) };
+        fe.push(chunk, mean, mic::GAIN);
+        fe.window(&mut features);
         let (label, logits) = classify(&ctx, &device, infer, &features, arena)?;
 
         let compute = ms_since(t0);
@@ -257,7 +209,7 @@ fn classify(
     ctx: &Context,
     device: &Device,
     infer: iree_embedded::Function,
-    features: &[u8; 49 * 40],
+    features: &[u8; FEATURE_BYTES],
     arena: &Arena,
 ) -> Result<(&'static str, [f32; 4])> {
     let input = Tensor::from_u8(device, &[1, 49, 40, 1], features)?;

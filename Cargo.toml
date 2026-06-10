@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/iree-embedded-sys", "crates/iree-embedded"]
+members = ["crates/iree-embedded-sys", "crates/iree-embedded", "crates/kws-frontend"]
 # The firmware builds for thumbv7em with its own .cargo/config; keep it out of
 # the host workspace so `cargo test` etc. stay on the host target.
 exclude = ["examples/microbit-v2-kws"]
