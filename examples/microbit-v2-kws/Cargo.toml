@@ -1,3 +1,9 @@
+# Self-contained example workspace: the firmware bin plus its bundled audio
+# front end. Only `iree-embedded` is reached from outside, that being the
+# reusable library this example demonstrates.
+[workspace]
+members = ["kws-frontend"]
+
 [package]
 name = "microbit-v2-kws"
 version = "0.1.0"
@@ -7,7 +13,7 @@ description = "micro:bit v2 firmware running IREE inference (simple_mul smoke, t
 
 [dependencies]
 iree-embedded = { path = "../../crates/iree-embedded" }
-kws-frontend = { path = "../../crates/kws-frontend" }
+kws-frontend = { path = "kws-frontend" }
 nrf52833-pac = "0.12"
 cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7"

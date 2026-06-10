@@ -4,9 +4,8 @@
 
 use kws_frontend::{FEATURE_BYTES, Frontend};
 
-static YES_AUDIO: &[u8] = include_bytes!("../../../examples/microbit-v2-kws/models/yes_audio.bin");
-static YES_FEATURES: &[u8] =
-    include_bytes!("../../../examples/microbit-v2-kws/models/yes_features.bin");
+static YES_AUDIO: &[u8] = include_bytes!("../../models/yes_audio.bin");
+static YES_FEATURES: &[u8] = include_bytes!("../../models/yes_features.bin");
 
 fn audio() -> Vec<i16> {
     YES_AUDIO
