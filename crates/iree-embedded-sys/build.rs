@@ -66,13 +66,28 @@ fn main() {
     } else {
         None
     };
-    if cfg!(target_os = "macos")
-        && std::env::var_os("LIBCLANG_PATH").is_none()
-        && let Some(p) = &llvm_prefix
-    {
-        // SAFETY: build scripts are single-threaded at this point; no
-        // other thread can be reading the environment concurrently.
-        unsafe { std::env::set_var("LIBCLANG_PATH", format!("{p}/lib")) };
+    if cfg!(target_os = "macos") && std::env::var_os("LIBCLANG_PATH").is_none() {
+        // `brew --prefix llvm` answers even when llvm is not installed (CI
+        // runners), so verify the dylib actually exists and fall back to the
+        // Xcode / Command Line Tools copy.
+        let mut candidates: Vec<PathBuf> = Vec::new();
+        if let Some(p) = &llvm_prefix {
+            candidates.push(PathBuf::from(format!("{p}/lib")));
+        }
+        if let Some(xc) = run_capture("xcode-select", &["-p"]) {
+            candidates.push(PathBuf::from(format!(
+                "{xc}/Toolchains/XcodeDefault.xctoolchain/usr/lib"
+            )));
+            candidates.push(PathBuf::from(format!("{xc}/usr/lib")));
+        }
+        if let Some(dir) = candidates
+            .into_iter()
+            .find(|d| d.join("libclang.dylib").exists())
+        {
+            // SAFETY: build scripts are single-threaded at this point; no
+            // other thread can be reading the environment concurrently.
+            unsafe { std::env::set_var("LIBCLANG_PATH", &dir) };
+        }
     }
 
     if is_mcu {

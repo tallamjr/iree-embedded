@@ -2,7 +2,11 @@
 
 use iree_embedded::{Arena, Context, Device, Instance, Tensor, include_vmfb};
 
-static VMFB: &[u8] = include_vmfb!("fixtures/simple_mul.vmfb");
+// Embedded-ELF kernels are architecture-specific; pick the host's build.
+#[cfg(target_arch = "aarch64")]
+static VMFB: &[u8] = include_vmfb!("fixtures/simple_mul-aarch64.vmfb");
+#[cfg(target_arch = "x86_64")]
+static VMFB: &[u8] = include_vmfb!("fixtures/simple_mul-x86_64.vmfb");
 
 #[test]
 fn simple_mul_returns_eight() {

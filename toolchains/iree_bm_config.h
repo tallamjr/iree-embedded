@@ -24,3 +24,21 @@
 // 32-bit device on Cortex-M.
 #define IREE_DEVICE_SIZE_T uint32_t
 #define PRIdsz PRIu32
+
+// Ubuntu's arm-none-eabi newlib headers omit the 64-bit PRI macros (Homebrew's
+// build has them). IREE format strings use them; long long is "ll" on ARM EABI.
+#ifndef PRId64
+#define PRId64 "lld"
+#endif
+#ifndef PRIi64
+#define PRIi64 "lli"
+#endif
+#ifndef PRIu64
+#define PRIu64 "llu"
+#endif
+#ifndef PRIx64
+#define PRIx64 "llx"
+#endif
+#ifndef PRIX64
+#define PRIX64 "llX"
+#endif

@@ -7,7 +7,11 @@
 
 use iree_embedded::{Arena, Context, Device, Instance, Tensor, include_vmfb};
 
-static VMFB: &[u8] = include_vmfb!("fixtures/micro_speech.vmfb");
+// Embedded-ELF kernels are architecture-specific; pick the host's build.
+#[cfg(target_arch = "aarch64")]
+static VMFB: &[u8] = include_vmfb!("fixtures/micro_speech-aarch64.vmfb");
+#[cfg(target_arch = "x86_64")]
+static VMFB: &[u8] = include_vmfb!("fixtures/micro_speech-x86_64.vmfb");
 static YES_FEATURES: &[u8] = include_bytes!("fixtures/yes_features.bin");
 
 const LABELS: [&str; 4] = ["silence", "unknown", "yes", "no"];
