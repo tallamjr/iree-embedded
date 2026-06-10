@@ -19,14 +19,35 @@ pub enum StatusCode {
     Unknown,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+const MSG_CAP: usize = 192;
+
+#[derive(Clone, Copy)]
 pub struct Error {
     code: StatusCode,
+    raw: u32,
+    msg: [u8; MSG_CAP],
+    msg_len: usize,
 }
 
 impl Error {
     pub fn code(&self) -> StatusCode {
         self.code
+    }
+
+    /// The raw IREE status code (the low 5 bits of the status).
+    pub fn raw_code(&self) -> u32 {
+        self.raw
+    }
+
+    /// The formatted IREE status message (source location + annotations), if any.
+    pub fn message(&self) -> &str {
+        core::str::from_utf8(&self.msg[..self.msg_len]).unwrap_or("<non-utf8>")
+    }
+}
+
+impl core::fmt::Debug for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Error({:?}, raw={}, {})", self.code, self.raw, self.message())
     }
 }
 
@@ -39,11 +60,19 @@ pub(crate) fn check(status: sys::iree_status_t) -> Result<()> {
         return Ok(());
     }
     let code = (status as usize & CODE_MASK) as u32;
-    // SAFETY: `status` is a non-OK status we now own; free its message buffer.
+    let mut msg = [0u8; MSG_CAP];
+    let mut len: sys::iree_host_size_t = 0;
+    // SAFETY: format into our buffer, then free the status (we own it).
     unsafe {
+        sys::iree_status_format(status, msg.len(), msg.as_mut_ptr() as *mut _, &mut len);
         sys::iree_status_free(status);
     }
-    Err(Error { code: map(code) })
+    Err(Error {
+        code: map(code),
+        raw: code,
+        msg,
+        msg_len: (len as usize).min(MSG_CAP),
+    })
 }
 
 fn map(code: u32) -> StatusCode {

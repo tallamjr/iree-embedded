@@ -6,3 +6,4 @@
 #include "iree/hal/drivers/local_sync/sync_device.h"
 #include "iree/hal/local/executable_loader.h"
 #include "iree/hal/local/loaders/embedded_elf_loader.h"
+#include "iree/hal/local/loaders/static_library_loader.h"

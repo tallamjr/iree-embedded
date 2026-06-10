@@ -1,14 +1,18 @@
 #![cfg_attr(not(test), no_std)]
 
-/// Embed a compiled `.vmfb` as a 16-byte-aligned `&'static [u8]`.
+/// Embed a compiled `.vmfb` as a 64-byte-aligned `&'static [u8]`.
 ///
-/// IREE's FlatBuffer verifier requires the module header to be aligned, which a
-/// plain `include_bytes!` (1-byte aligned) does not guarantee. Use this for any
+/// IREE's FlatBuffer verifier requires the module header to be aligned, and —
+/// critically — the rodata segments (model weights) inside are only used
+/// *in place* when they meet HAL buffer alignment (64 bytes). An underaligned
+/// module silently falls back to staging copies through the device queue,
+/// which costs RAM and deadlocks the bare-metal single-threaded HAL. A plain
+/// `include_bytes!` (1-byte aligned) guarantees neither; use this for any
 /// embedded model.
 #[macro_export]
 macro_rules! include_vmfb {
     ($path:expr) => {{
-        #[repr(C, align(16))]
+        #[repr(C, align(64))]
         struct Aligned<T: ?Sized>(T);
         static ALIGNED: &Aligned<[u8]> = &Aligned(*include_bytes!($path));
         &ALIGNED.0
@@ -22,9 +26,9 @@ mod instance;
 mod status;
 mod tensor;
 
-pub use arena::Arena;
+pub use arena::{Arena, LAST_ALLOC_FAIL_SIZE};
 pub use context::{Context, Function};
-pub use device::Device;
+pub use device::{Device, LibraryQueryFn};
 pub use instance::Instance;
 pub(crate) use status::check;
 pub use status::{Error, Result, StatusCode};

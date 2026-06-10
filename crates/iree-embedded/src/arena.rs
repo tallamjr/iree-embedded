@@ -6,10 +6,15 @@
 use core::alloc::Layout;
 use core::ffi::c_void;
 use core::ptr::NonNull;
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 use iree_embedded_sys as sys;
 use spin::Mutex;
 use talc::{ClaimOnOom, Span, Talc};
+
+/// Byte length of the most recent allocation the arena could not satisfy (0 if
+/// none). Useful for diagnosing on-device out-of-memory failures.
+pub static LAST_ALLOC_FAIL_SIZE: AtomicUsize = AtomicUsize::new(0);
 
 /// Bytes reserved before each allocation to store its size (IREE's `free` does
 /// not pass the size back, so we record it). Also keeps user data 16-aligned.
@@ -49,7 +54,10 @@ impl Arena {
         // SAFETY: layout has non-zero size (HEADER > 0).
         let base = match unsafe { talc.malloc(layout) } {
             Ok(p) => p.as_ptr(),
-            Err(_) => return core::ptr::null_mut(),
+            Err(_) => {
+                LAST_ALLOC_FAIL_SIZE.store(byte_length, Ordering::Relaxed);
+                return core::ptr::null_mut();
+            }
         };
         // SAFETY: base points to a fresh block of `byte_length + HEADER` bytes.
         unsafe {

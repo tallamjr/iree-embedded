@@ -33,6 +33,10 @@ fn main() {
             "runtime/src/iree/hal/local/loaders",
             "iree_hal_local_loaders_embedded_elf_loader",
         ),
+        (
+            "runtime/src/iree/hal/local/loaders",
+            "iree_hal_local_loaders_static_library_loader",
+        ),
         ("build_tools/third_party/flatcc", "flatcc_parsing"),
         ("build_tools/third_party/printf", "printf_printf"),
     ] {

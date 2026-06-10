@@ -11,6 +11,10 @@
 #define IREE_PLATFORM_GENERIC 1
 #define IREE_FILE_IO_ENABLE 0
 
+// Keep status messages (source location + annotations) so on-device failures
+// report a useful reason over RTT, not just a bare code.
+#define IREE_STATUS_MODE 2
+
 // Single-threaded synchronous target: time is monotonic-from-zero and waits are
 // no-ops (synchronous inference never actually blocks).
 #define IREE_TIME_NOW_FN \
