@@ -1,0 +1,36 @@
+# Vendored upstream C (TFLM front end, kissfft) and iree-compile-generated
+# model artefacts must not be touched by formatters or fixers.
+exclude: ^examples/microbit-v2-kws/(vendor|models)/
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=1000000"]
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-yaml
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: trailing-whitespace
+
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: fmt
+      - id: cargo-check
+      - id: clippy
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        # Fail on warnings and errors; informational notes (e.g. SC1091,
+        # "cannot follow sourced file") are a linter limitation, not a defect.
+        args: ["--severity=warning"]

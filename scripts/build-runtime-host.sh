@@ -11,9 +11,10 @@ BUILD="${IREE_BUILD:-$ROOT/.iree/build/host}"
 
 if [[ "$(uname)" == "Darwin" ]]; then
   # Homebrew clang fails on macOS SDK mach headers; use Apple's toolchain.
-  export CC="$(xcrun -f clang)"
-  export CXX="$(xcrun -f clang++)"
-  export SDKROOT="$(xcrun --show-sdk-path)"
+  CC="$(xcrun -f clang)"
+  CXX="$(xcrun -f clang++)"
+  SDKROOT="$(xcrun --show-sdk-path)"
+  export CC CXX SDKROOT
 fi
 
 echo "== cmake configure (host) =="
