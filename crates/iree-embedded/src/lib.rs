@@ -79,6 +79,34 @@ macro_rules! singleton {
     }};
 }
 
+/// Declare the query entry point of a statically linked IREE executable
+/// library and yield it as a [`LibraryQueryFn`].
+///
+/// `iree-compile --iree-hal-target-backends=llvm-cpu` with static-library
+/// output produces an object file plus a header naming its query function
+/// (for example `my_model_linked_library_query`). Link the object into the
+/// firmware and pass the symbol here; give the result to
+/// [`Device::local_sync_static`](crate::Device::local_sync_static).
+///
+/// ```ignore
+/// let device = Device::local_sync_static(
+///     &arena,
+///     &[iree_embedded::link_kernels!(my_model_linked_library_query)],
+/// )?;
+/// ```
+#[macro_export]
+macro_rules! link_kernels {
+    ($sym:ident) => {{
+        unsafe extern "C" {
+            fn $sym(
+                max_version: u32,
+                environment: *const ::core::ffi::c_void,
+            ) -> *const ::core::ffi::c_void;
+        }
+        $sym as $crate::LibraryQueryFn
+    }};
+}
+
 mod arena;
 mod context;
 mod device;
