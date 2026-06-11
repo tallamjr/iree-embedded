@@ -14,6 +14,8 @@ description = "micro:bit v2 firmware running IREE inference (simple_mul smoke, t
 [dependencies]
 iree-embedded = { path = "../../crates/iree-embedded" }
 kws-frontend = { path = "kws-frontend" }
+# Safe reinterpretation of the embedded audio clip's bytes as i16 samples.
+bytemuck = { version = "1", default-features = false }
 # embassy-nrf is the nRF device HAL: it replaces raw nrf52833-pac register and
 # DMA pokes (the SAADC/PPI capture in the old mic.rs) with safe typed APIs.
 embassy-executor = { version = "0.10", features = [
