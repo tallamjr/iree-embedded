@@ -3,13 +3,16 @@ name = "iree-embedded-sys"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
-description = "Raw FFI bindings to the IREE bare-metal runtime (the only unsafe crate)."
+description = "Raw FFI bindings to the IREE bare-metal runtime for no_std Cortex-M targets."
 authors = ["Tarek Allam Jr <t.allam.jr@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/tallamjr/iree-embedded"
 readme = "README.md"
 keywords = ["iree", "ffi", "no_std", "inference", "cortex-m"]
 categories = ["external-ffi-bindings", "embedded", "no-std"]
+# Declares this crate as the sole linker of the native IREE runtime, so cargo
+# allows only one version of it in a dependency graph.
+links = "iree"
 
 [build-dependencies]
 bindgen = { version = "0.72", features = ["experimental"] }

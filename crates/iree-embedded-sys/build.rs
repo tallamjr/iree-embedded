@@ -52,7 +52,10 @@ fn main() {
     let inc_src = src.join("runtime/src");
     let inc_gen = build_dir.join("runtime/src");
     let inc_flatcc = src.join("third_party/flatcc/include");
-    let bm_config = root.join("toolchains/iree_bm_config.h");
+    // Committed inside the crate (a copy of repo-root toolchains/iree_bm_config.h)
+    // so it is reachable when building from a crates.io checkout, where the repo
+    // root is absent.
+    let bm_config = manifest.join("iree_bm_config.h");
 
     // Link exactly the archives the runtime build produces (unified merges the
     // first-party deps; the driver, loader, and third-party libs are explicit).
@@ -166,6 +169,7 @@ fn main() {
     wrappers.compile("iree_static_wrappers");
 
     println!("cargo:rerun-if-changed=wrapper.h");
+    println!("cargo:rerun-if-changed=iree_bm_config.h");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=generated");
     println!("cargo:rerun-if-changed=runtime-checksums.txt");
@@ -232,10 +236,11 @@ fn generate_bindings(
         for dir in arm_none_eabi_include_dirs() {
             clang_args.push(format!("-isystem{dir}"));
         }
-    } else if cfg!(target_os = "macos")
-        && let Some(sdk) = run_capture("xcrun", &["--show-sdk-path"])
-    {
-        clang_args.push(format!("-isysroot{sdk}"));
+    } else if cfg!(target_os = "macos") {
+        // Not a let-chain (`&& let`), to keep the MSRV at edition 2024's 1.85.
+        if let Some(sdk) = run_capture("xcrun", &["--show-sdk-path"]) {
+            clang_args.push(format!("-isysroot{sdk}"));
+        }
     }
 
     let mut builder = bindgen::Builder::default()

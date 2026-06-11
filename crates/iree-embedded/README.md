@@ -38,5 +38,7 @@ v2).
 
 ## Licence
 
-Licensed under either of [Apache-2.0](../../LICENSE-APACHE) or
-[MIT](../../LICENSE-MIT) at your option.
+Licensed under either of
+[Apache-2.0](https://github.com/tallamjr/iree-embedded/blob/master/LICENSE-APACHE)
+or [MIT](https://github.com/tallamjr/iree-embedded/blob/master/LICENSE-MIT) at
+your option.

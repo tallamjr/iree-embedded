@@ -101,6 +101,10 @@ Stack: `embassy-executor`, `embassy-nrf` (the nRF device HAL), `cortex-m-rt`,
 
 ## Building
 
+Consuming the crates from crates.io needs none of this: `iree-embedded-sys`'s
+build script downloads the matching prebuilt runtime for your target and
+verifies its checksum. The options below are for building from this repository.
+
 Two options for the IREE runtime the crates link against:
 
 - **Prebuilt artefact (recommended).** CI builds the runtime per target and

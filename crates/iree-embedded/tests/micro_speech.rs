@@ -2,8 +2,8 @@
 //! `micro_speech` model on real "yes" features and check it predicts "yes".
 //!
 //! The features were produced from a real 16 kHz "yes" recording by the
-//! TFLite-Micro audio front end (see scripts in .iree/), and the model output
-//! matches the reference TFLite interpreter byte-for-byte.
+//! TFLite-Micro audio front end (see scripts/gen-host-fixtures.sh), and the
+//! model output matches the reference TFLite interpreter byte-for-byte.
 
 use iree_embedded::{Arena, Context, Device, Instance, Tensor, include_vmfb};
 
