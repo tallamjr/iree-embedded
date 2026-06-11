@@ -57,7 +57,7 @@ jobs:
           cargo clippy --workspace --all-targets -- -D warnings
       - name: Package artefact
         run: scripts/package-runtime.sh .iree/build/host host-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: runtime-host-${{ matrix.os }}
           path: dist/*.tar.gz
@@ -86,7 +86,7 @@ jobs:
           BUILD=.iree/build/mcu
           [ "${{ matrix.target }}" = "cortex-m4f" ] || BUILD=.iree/build/${{ matrix.target }}
           scripts/package-runtime.sh "$BUILD" ${{ matrix.target }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: runtime-${{ matrix.target }}
           path: dist/*.tar.gz
