@@ -1,6 +1,6 @@
-# Vendored upstream C (TFLM front end, kissfft) and iree-compile-generated
-# model artefacts must not be touched by formatters or fixers.
-exclude: ^examples/microbit-v2-kws/(vendor|models)/
+# iree-compile-generated model artefacts must not be touched by formatters or
+# fixers; this covers the models/ directory of every example workspace.
+exclude: ^examples/[^/]+/models/
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

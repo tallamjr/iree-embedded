@@ -55,7 +55,7 @@ Three reasons to want it:
 
 The practical benefits this project leans on:
 
-1. **It fits at all.** ONNX Runtime simply cannot run on an nRF52833 with
+1. **Does it even fit.** ONNX Runtime simply cannot run on an nRF52833 with
    128 KB RAM and no OS. IREE's runtime half is designed for exactly that.
 2. **Target-specific codegen.** The kernels in `model.o` are compiled with
    `-mcpu=cortex-m4`, hard-float ABI, for the exact tensor shapes in the
@@ -76,39 +76,45 @@ The practical benefits this project leans on:
 | MicroFlow       | Yes, even 8-bit AVR       | TFLite subset              | generated portable Rust                     | recompiling firmware        | young                 |
 | `iree-embedded` | Yes                       | TFLite, ONNX, PyTorch, JAX | compiled for your exact CPU                 | reflashing                  | young                 |
 
-**The trade-off, stated plainly.** Every model must be compiled on a host,
-per target, before it can run (the example README's "phase 1"): a model is
-fixed at build time, so updating one means reflashing firmware rather than
-loading a new file, and the toolchain is younger and rougher than ONNX
-Runtime's. That is why, on a server with an OS and gigabytes of RAM, ORT's
-ecosystem usually wins and IREE is not the pragmatic choice. On a
-microcontroller the real comparison is TFLite-Micro, and the split is
-interpretation versus compilation: TFLM carries a fixed kernel library and
-interprets your graph against it, with the flexibility to swap models at
-runtime; IREE compiles the graph into target-specific machine code, smaller
-and faster, at the price of that host-side compile step. IREE's sweet spot is
-exactly the constrained target this crate serves.
+**The trade-offs.**
 
-**More on TVM.** Architecturally the closest relative: Apache TVM is also
-an ahead-of-time compiler, and its microTVM project targeted this same
-bare-metal Cortex-M niche with a C runtime and AoT executor. The difference is
-momentum and the runtime half. microTVM has stagnated upstream (its
-maintainers moved on as the TVM project's focus shifted towards LLM serving),
-its bare-metal story leans on generated C glue per project, and there are no
-Rust bindings. IREE's runtime is a small, actively developed C library with a
-HAL built for single-threaded bare-metal targets, which is precisely the piece
-this crate binds.
+- For `iree-embedded`, every model must be compiled on a host, per target,
+  before it can run so a model is fixed at build time, which means updating
+  requires reflashing firmware rather than loading a new file.
+- The toolchain is younger and rougher than ONNX Runtime's. That is why, on a
+  server with an OS and gigabytes of RAM, ORT's ecosystem usually wins and IREE is
+  not the pragmatic choice.
+- On a microcontroller the real comparison is TFLite-Micro, and the split is
+  **interpretation** i.e at runtime vs. **compilation**: TFLM carries a fixed
+  kernel library and interprets your graph against it, with the flexibility to
+  swap models at runtime; IREE compiles the graph into target-specific machine
+  code **ahead-of-time**, smaller and faster, at the price of that host-side
+  compile step.
 
-**More on [MicroFlow](https://github.com/matteocarnelos/microflow-rs).**
-A genuinely elegant alternative, and the right tool for some jobs: it is pure
-Rust end to end (no C toolchain at all), its procedural macro parses the
-`.tflite` flatbuffer at compile time into static Rust code, and it runs on
-parts far smaller than this crate targets (down to 8-bit AVR). The trade-offs
-are a small fixed operator set, a TFLite-only front door, and portable Rust
-kernels rather than per-CPU compiled ones. If a small quantised TFLite model
-fits MicroFlow's ops, it is the simpler choice; this crate is for when you
-want the full compiler front door (ONNX, PyTorch, JAX), broad op coverage,
-and kernels code-generated for your exact core.
+IREE's sweet spot is exactly the constrained target this crate serves.
+
+> [!NOTE]
+> **More on TVM.** Architecturally the closest relative: Apache TVM is
+> also an ahead-of-time compiler, and its microTVM project targeted this same
+> bare-metal Cortex-M niche with a C runtime and AoT executor. The difference is
+> momentum and the runtime half. microTVM has stagnated upstream (its
+> maintainers moved on as the TVM project's focus shifted towards LLM serving),
+> its bare-metal story leans on generated C glue per project, and there are no
+> Rust bindings. IREE's runtime is a small, actively developed C library with a
+> HAL built for single-threaded bare-metal targets, which is precisely the piece
+> this crate binds.
+
+> [!NOTE]
+> **More on [MicroFlow](https://github.com/matteocarnelos/microflow-rs).** A genuinely
+> elegant alternative, and the right tool for some jobs: it is pure Rust end to
+> end (no C toolchain at all), its procedural macro parses the `.tflite`
+> flatbuffer at compile time into static Rust code, and it runs on parts far
+> smaller than this crate targets (down to 8-bit AVR). The trade-offs are a
+> small fixed operator set, a TFLite-only front door, and portable Rust kernels
+> rather than per-CPU compiled ones. If a small quantised TFLite model fits
+> MicroFlow's ops, it is the simpler choice; this crate is for when you want the
+> full compiler front door (ONNX, PyTorch, JAX), broad op coverage, and kernels
+> code-generated for your exact core.
 
 ## Status
 

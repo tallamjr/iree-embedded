@@ -1,0 +1,16 @@
+[build]
+target = "thumbv7em-none-eabihf"
+
+[env]
+# defmt filters at compile time; without this only error! survives. RTT is
+# dormant without a probe (the Nano's SWD is on test pads), but anyone who
+# wires one gets full logs from the same binary.
+DEFMT_LOG = "info"
+
+[target.thumbv7em-none-eabihf]
+# Flash over USB through the stock Arduino bootloader (no probe needed).
+runner = "scripts/flash.sh"
+rustflags = [
+  "-C", "link-arg=-Tlink.x",   # cortex-m-rt linker script
+  "-C", "link-arg=-Tdefmt.x",  # defmt RTT
+]

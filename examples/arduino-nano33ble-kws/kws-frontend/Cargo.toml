@@ -1,0 +1,8 @@
+[package]
+name = "kws-frontend"
+version = "0.1.0"
+edition = "2024"
+description = "Pure-Rust port of the TFLite-Micro audio front end (micro_speech configuration), byte-exact against the C reference."
+
+[dependencies]
+libm = "0.2"
