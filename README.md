@@ -1,12 +1,16 @@
-# iree-embedded
+<h1 align="center">IREE: Embedded</h1>
+<p align="center">
+  <img src="assets/logo.png" width="180">
+</p>
 
-[![CI](https://github.com/tallamjr/iree-embedded/actions/workflows/runtime.yml/badge.svg)](https://github.com/tallamjr/iree-embedded/actions/workflows/runtime.yml)
-[![crates.io](https://img.shields.io/crates/v/iree-embedded.svg)](https://crates.io/crates/iree-embedded)
-[![docs.rs](https://docs.rs/iree-embedded/badge.svg)](https://docs.rs/iree-embedded)
-[![licence: MIT OR Apache-2.0](https://img.shields.io/badge/licence-MIT%20OR%20Apache--2.0-blue.svg)](#licence)
+<h4 align="center"><em>An embedded <code>no_std</code> Rust runtime for AI inference on microcontrollers, built on <a href="https://iree.dev">IREE</a>.</em></h4>
 
-An embedded `no_std` Rust runtime for machine-learning inference on Cortex-M
-microcontrollers, built on [IREE](https://iree.dev)'s bare-metal C runtime.
+<p align="center">
+  <a href="https://crates.io/crates/iree-embedded"><img src="https://img.shields.io/crates/v/iree-embedded"></a>
+  <a href="https://docs.rs/iree-embedded"><img src="https://img.shields.io/docsrs/iree-embedded"></a>
+  <a href="https://github.com/tallamjr/iree-embedded/actions/workflows/runtime.yml"><img src="https://img.shields.io/github/actions/workflow/status/tallamjr/iree-embedded/runtime.yml?branch=master"></a>
+  <a href="#licence"><img src="https://img.shields.io/badge/licence-MIT%20OR%20Apache--2.0-blue"></a>
+</p>
 
 ## Why this crate
 
@@ -24,12 +28,12 @@ Three reasons to want it:
   types (`Arena`, `Instance`, `Device`, `Context`, `Tensor`, `Error`), so
   leaks and double-frees become compile-time impossibilities and every
   fallible call returns a `Result` carrying the real IREE status message.
-  Running a model is ~15 lines of safe Rust:
+  Running a model is ~15 lines of Rust, with no `unsafe` anywhere in user code:
 
   ```rust
-  let arena = unsafe { Arena::new(&mut HEAP) };      // any static buffer
+  let arena = Arena::new(singleton!([u8; 56 * 1024] = [0; 56 * 1024]));
   let instance = Instance::new(&arena)?;
-  let device = Device::local_sync_static(&arena, &[my_model_library_query])?;
+  let device = Device::local_sync_static(&arena, &[link_kernels!(my_model_library_query)])?;
   let ctx = Context::new(&instance, &device, VMFB, &arena)?;
   let out = ctx.invoke(ctx.resolve("module.main")?, &[&input], &arena)?;
   ```

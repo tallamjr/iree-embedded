@@ -16,12 +16,12 @@ double-frees become compile-time impossibilities and every fallible call
 returns a `Result` carrying the real IREE status message.
 
 ```rust,no_run
-use iree_embedded::{Arena, Context, Device, Instance, Tensor};
+use iree_embedded::{Arena, Context, Device, Instance, Tensor, link_kernels, singleton};
 
-// HEAP is any static byte buffer; VMFB is the embedded compiled model.
-let arena = unsafe { Arena::new(&mut HEAP) };
+// VMFB is the embedded compiled model (include_vmfb!).
+let arena = Arena::new(singleton!([u8; 56 * 1024] = [0; 56 * 1024]));
 let instance = Instance::new(&arena)?;
-let device = Device::local_sync_static(&arena, &[my_model_library_query])?;
+let device = Device::local_sync_static(&arena, &[link_kernels!(my_model_library_query)])?;
 let ctx = Context::new(&instance, &device, VMFB, &arena)?;
 let out = ctx.invoke(ctx.resolve("module.main")?, &[&input], &arena)?;
 ```

@@ -18,6 +18,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   matching GitHub release, so a plain crates.io consumer needs no local build.
 - Committed Cortex-M bindings, so building for `thumbv7em-none-eabihf` needs no
   `libclang`.
+- `singleton!`, `link_kernels!` and `libc_stubs!` macros encapsulating the
+  bare-metal plumbing (static buffers, the kernel query symbol, libc stubs),
+  so firmware using the crate compiles under `#![forbid(unsafe_code)]`; the
+  micro:bit example now does.
 - `kws-frontend`: a pure-Rust, byte-exact port of the TFLite-Micro audio front
   end (bundled in the micro:bit example).
 - Live keyword-spotting firmware example for the BBC micro:bit v2, using the
