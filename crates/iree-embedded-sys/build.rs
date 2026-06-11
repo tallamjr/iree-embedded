@@ -1,4 +1,16 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+// Pinned IREE runtime release the committed bindings match. This mirrors
+// scripts/iree-version.env (the dev/CI source of truth) but is embedded here
+// because the published crate does not carry repo-root files: a crates.io
+// consumer's build.rs only sees what lives under this crate directory.
+const IREE_SHA: &str = "e4a3b0405d7d23554da26403658d0e8c3c5ecf25";
+const RELEASE_TAG: &str = "v0.1.0";
+const RELEASE_BASE: &str = "https://github.com/tallamjr/iree-embedded/releases/download";
+
+// Pinned sha256 of each downloadable artefact. Compiled in so a missing file is
+// a build error, never a silent skip of verification.
+const CHECKSUMS: &str = include_str!("runtime-checksums.txt");
 
 fn main() {
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
@@ -8,18 +20,34 @@ fn main() {
     // Bindings differ only by data model: ILP32 on the MCU, LP64 on the host.
     let variant = if is_mcu { "mcu" } else { "host" };
 
-    // The out-of-band IREE runtime build (scripts/build-runtime-{host,mcu}.sh,
-    // or an unpacked CI artefact). build.rs only LINKS this. For an artefact,
-    // set IREE_RUNTIME_DIR=<unpacked>/build and IREE_SRC_DIR=<unpacked>/src.
-    let src = std::env::var("IREE_SRC_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| root.join(".iree/src"));
-    let build_dir = std::env::var("IREE_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            root.join(".iree/build")
-                .join(if is_mcu { "mcu" } else { "host" })
-        });
+    let out = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+
+    // Locate the out-of-band IREE runtime (built by scripts/build-runtime-*.sh,
+    // or an unpacked CI artefact). build.rs only LINKS this; it never builds it.
+    // Resolution order:
+    //   1. IREE_RUNTIME_DIR / IREE_SRC_DIR env vars (explicit override; each
+    //      falls back independently to the in-repo .iree path).
+    //   2. In-repo .iree/build/{host,mcu} + .iree/src (the dev and CI layout).
+    //   3. Download the prebuilt artefact for this target from the GitHub
+    //      release and unpack it into OUT_DIR (the crates.io consumer path).
+    let env_src = std::env::var_os("IREE_SRC_DIR").map(PathBuf::from);
+    let env_build = std::env::var_os("IREE_RUNTIME_DIR").map(PathBuf::from);
+    let in_repo_src = root.join(".iree/src");
+    let in_repo_build = root
+        .join(".iree/build")
+        .join(if is_mcu { "mcu" } else { "host" });
+
+    let (src, build_dir) = if env_src.is_some() || env_build.is_some() {
+        (
+            env_src.unwrap_or_else(|| in_repo_src.clone()),
+            env_build.unwrap_or_else(|| in_repo_build.clone()),
+        )
+    } else if in_repo_build.is_dir() && in_repo_src.is_dir() {
+        (in_repo_src, in_repo_build)
+    } else {
+        let unpacked = download_runtime(&target, is_mcu, &out);
+        (unpacked.join("src"), unpacked.join("build"))
+    };
 
     let inc_src = src.join("runtime/src");
     let inc_gen = build_dir.join("runtime/src");
@@ -52,7 +80,6 @@ fn main() {
         println!("cargo:rustc-link-lib=static={lib}");
     }
 
-    let out = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let extern_c = out.join("extern.c");
     let bindings_rs = out.join("bindings.rs");
 
@@ -141,6 +168,7 @@ fn main() {
     println!("cargo:rerun-if-changed=wrapper.h");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=generated");
+    println!("cargo:rerun-if-changed=runtime-checksums.txt");
     println!("cargo:rerun-if-env-changed=IREE_RUNTIME_DIR");
     println!("cargo:rerun-if-env-changed=IREE_SRC_DIR");
     println!("cargo:rerun-if-env-changed=IREE_EMBEDDED_REGENERATE_BINDINGS");
@@ -262,6 +290,152 @@ fn arm_none_eabi_include_dirs() -> Vec<String> {
         }
     }
     dirs
+}
+
+/// Download the prebuilt runtime artefact for `target` from the GitHub release,
+/// verify it against the pinned sha256, unpack it into `OUT_DIR`, and return the
+/// unpacked directory (which holds `build/` and `src/`). Taken only when neither
+/// IREE_RUNTIME_DIR/IREE_SRC_DIR nor an in-repo .iree/ is present, i.e. a plain
+/// crates.io consumer. Uses system `curl`, `tar`, and `sha256sum`/`shasum`
+/// rather than pulling a TLS + crypto stack into every consumer's build.
+fn download_runtime(target: &str, is_mcu: bool, out: &Path) -> PathBuf {
+    let artefact_target = artefact_target(target, is_mcu).unwrap_or_else(|| {
+        panic!(
+            "iree-embedded-sys: no prebuilt IREE runtime is published for target `{target}`. \
+             Build one with scripts/build-runtime-*.sh and point IREE_RUNTIME_DIR (build dir) \
+             and IREE_SRC_DIR (IREE source) at it."
+        )
+    });
+    let sha9 = &IREE_SHA[..9];
+    let name = format!("iree-runtime-{artefact_target}-{sha9}");
+    let file = format!("{name}.tar.gz");
+
+    let unpacked = out.join(&name);
+    // Reuse a prior download on incremental builds.
+    if unpacked.join("build").is_dir() && unpacked.join("src").is_dir() {
+        return unpacked;
+    }
+
+    let expected = expected_sha256(CHECKSUMS, &file).unwrap_or_else(|| {
+        panic!(
+            "iree-embedded-sys: no pinned sha256 for `{file}` in runtime-checksums.txt; \
+             the download cannot be verified. Set IREE_RUNTIME_DIR and IREE_SRC_DIR instead."
+        )
+    });
+
+    let url = format!("{RELEASE_BASE}/{RELEASE_TAG}/{file}");
+    let tarball = out.join(&file);
+    // --proto =https / --tlsv1.2: refuse to be redirected onto plaintext.
+    let status = std::process::Command::new("curl")
+        .args(["--proto", "=https", "--tlsv1.2", "-fsSL", "-o"])
+        .arg(&tarball)
+        .arg(&url)
+        .status()
+        .unwrap_or_else(|e| {
+            panic!("iree-embedded-sys: failed to run `curl` to download {url}: {e}")
+        });
+    assert!(
+        status.success(),
+        "iree-embedded-sys: `curl` failed ({status}) downloading {url}"
+    );
+
+    let actual = sha256_file(&tarball);
+    assert!(
+        actual == expected,
+        "iree-embedded-sys: sha256 mismatch for {file}\n  expected {expected}\n  got      {actual}\n\
+         Refusing to use a runtime that does not match the pinned checksum."
+    );
+
+    let status = std::process::Command::new("tar")
+        .arg("-xzf")
+        .arg(&tarball)
+        .arg("-C")
+        .arg(out)
+        .status()
+        .unwrap_or_else(|e| panic!("iree-embedded-sys: failed to run `tar` on {file}: {e}"));
+    assert!(
+        status.success(),
+        "iree-embedded-sys: `tar` failed ({status}) extracting {file}"
+    );
+
+    assert!(
+        unpacked.join("build").is_dir() && unpacked.join("src").is_dir(),
+        "iree-embedded-sys: unpacked {file} but {} is missing build/ or src/",
+        unpacked.display()
+    );
+    unpacked
+}
+
+/// Map a Rust target triple to the artefact target name used in the release
+/// filenames (see scripts/package-runtime.sh). Returns None for platforms the
+/// v0.1.0 release does not publish a runtime for.
+fn artefact_target(target: &str, is_mcu: bool) -> Option<String> {
+    if is_mcu {
+        // thumbv7em-none-eabihf is the hardware-validated Cortex-M4F build.
+        return Some("cortex-m4f".to_string());
+    }
+    let arch = if target.starts_with("x86_64") {
+        "x86_64"
+    } else if target.starts_with("aarch64") {
+        "arm64"
+    } else {
+        return None;
+    };
+    let os = if target.contains("apple") || target.contains("darwin") {
+        "darwin"
+    } else if target.contains("linux") {
+        "linux"
+    } else {
+        return None;
+    };
+    Some(format!("host-{os}-{arch}"))
+}
+
+/// Look up the pinned sha256 for `filename` in the checksums file. Lines are
+/// `<hex>  <filename>`; blank lines and `#` comments are ignored.
+fn expected_sha256(checksums: &str, filename: &str) -> Option<String> {
+    for line in checksums.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut parts = line.split_whitespace();
+        let hash = parts.next()?;
+        let name = parts.next()?;
+        if name == filename {
+            return Some(hash.to_lowercase());
+        }
+    }
+    None
+}
+
+/// Compute the sha256 of a file using GNU coreutils `sha256sum` (Linux) or the
+/// BSD/perl `shasum -a 256` (macOS), returning the lowercase hex digest.
+fn sha256_file(path: &Path) -> String {
+    let out = std::process::Command::new("sha256sum")
+        .arg(path)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .or_else(|| {
+            std::process::Command::new("shasum")
+                .args(["-a", "256"])
+                .arg(path)
+                .output()
+                .ok()
+                .filter(|o| o.status.success())
+        })
+        .unwrap_or_else(|| {
+            panic!(
+                "iree-embedded-sys: need `sha256sum` or `shasum` on PATH to verify the \
+                 runtime download. Set IREE_RUNTIME_DIR and IREE_SRC_DIR to skip the download."
+            )
+        });
+    String::from_utf8_lossy(&out.stdout)
+        .split_whitespace()
+        .next()
+        .expect("sha256 tool produced no output")
+        .to_lowercase()
 }
 
 /// Run a command and return its trimmed stdout, or None if it fails.

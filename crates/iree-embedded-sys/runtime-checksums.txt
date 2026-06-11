@@ -1,0 +1,20 @@
+# Pinned sha256 checksums for the prebuilt IREE runtime artefacts that
+# build.rs downloads from the GitHub release (the crates.io consumer path,
+# taken only when neither IREE_RUNTIME_DIR/IREE_SRC_DIR is set nor an in-repo
+# .iree/ exists). Format, one per line:
+#
+#   <sha256-hex>  <artefact-filename>
+#
+# Filenames are iree-runtime-<target>-<sha9>.tar.gz, where <sha9> is the first
+# nine characters of IREE_SHA (see build.rs / scripts/iree-version.env). The
+# targets the v0.1.0 release publishes:
+#
+#   iree-runtime-host-linux-x86_64-e4a3b0405.tar.gz
+#   iree-runtime-host-darwin-arm64-e4a3b0405.tar.gz
+#   iree-runtime-cortex-m4f-e4a3b0405.tar.gz
+#
+# These are populated in the release step (Task 23) once CI has built and
+# published the artefacts: download each, run `sha256sum` (or `shasum -a 256`),
+# and add the line here before `cargo publish`. Until an entry exists for a
+# requested artefact, the download path fails loudly rather than trusting an
+# unpinned download.
