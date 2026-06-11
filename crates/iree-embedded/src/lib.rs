@@ -115,6 +115,28 @@ macro_rules! link_kernels {
     }};
 }
 
+/// Provide the libc stubs a bare-metal newlib link expects, sized for this
+/// crate's allocation model.
+///
+/// Emits `_sbrk` returning failure: the IREE runtime allocates exclusively
+/// from the [`Arena`], so the libc heap must never grow. Invoke once at
+/// module scope in the firmware binary:
+///
+/// ```ignore
+/// iree_embedded::libc_stubs!();
+/// ```
+#[macro_export]
+macro_rules! libc_stubs {
+    () => {
+        /// libc heap stub: the IREE runtime allocates from the arena, so the
+        /// libc heap can never grow.
+        #[unsafe(no_mangle)]
+        pub extern "C" fn _sbrk(_incr: isize) -> *mut ::core::ffi::c_void {
+            -1isize as *mut ::core::ffi::c_void
+        }
+    };
+}
+
 mod arena;
 mod context;
 mod device;
