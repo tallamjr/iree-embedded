@@ -35,6 +35,36 @@ macro_rules! include_vmfb {
     }};
 }
 
+/// Hand out a unique `&'static mut` to a static, at most once.
+///
+/// The initialiser must be a const expression: the value is a real `static`,
+/// living in `.bss`/`.data` like any other, so a multi-kilobyte arena costs
+/// no stack to create (passing such a buffer *by value* through an
+/// initialiser, as cell-based abstractions do, can overflow a small MCU
+/// stack before the move is elided). A second take of the same call site
+/// panics rather than aliasing the `&mut`.
+///
+/// ```
+/// let heap: &'static mut [u8; 1024] = iree_embedded::singleton!([u8; 1024] = [0; 1024]);
+/// heap[0] = 1;
+/// ```
+#[macro_export]
+macro_rules! singleton {
+    ($t:ty = $init:expr) => {{
+        static TAKEN: ::core::sync::atomic::AtomicBool =
+            ::core::sync::atomic::AtomicBool::new(false);
+        static mut SLOT: $t = $init;
+        assert!(
+            !TAKEN.swap(true, ::core::sync::atomic::Ordering::AcqRel),
+            "iree_embedded::singleton! taken more than once"
+        );
+        // SAFETY: the TAKEN swap lets this expression complete at most once,
+        // so the returned &mut is the only reference to SLOT for the life of
+        // the program.
+        unsafe { &mut *::core::ptr::addr_of_mut!(SLOT) }
+    }};
+}
+
 mod arena;
 mod context;
 mod device;
