@@ -1,0 +1,47 @@
+name: iree-version-check
+
+# Weekly check: is a newer iree-base-runtime published on PyPI than the version
+# this repo pins in scripts/iree-version.env? If so, open a single tracking
+# issue. This only SIGNALS; it never bumps the pin. Bumping IREE is a deliberate
+# manual step (rebuild + republish the runtime artefacts, regenerate the
+# committed MCU bindings, refresh runtime-checksums.txt).
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare pinned IREE against the latest on PyPI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          source scripts/iree-version.env
+          pinned="$IREE_PIP_VERSION"
+          latest="$(curl -fsSL https://pypi.org/pypi/iree-base-runtime/json | jq -r '.info.version')"
+          echo "pinned=$pinned  latest=$latest"
+          if [ -z "$latest" ] || [ "$latest" = "null" ]; then
+            echo "Could not read the latest version from PyPI." >&2
+            exit 1
+          fi
+          # Signal only when PyPI is strictly newer than the pin (sort -V orders
+          # versions; if the newest of the two is the pinned one, we are current).
+          newest="$(printf '%s\n%s\n' "$pinned" "$latest" | sort -V | tail -n1)"
+          if [ "$pinned" = "$latest" ] || [ "$newest" = "$pinned" ]; then
+            echo "Pinned IREE is current."
+            exit 0
+          fi
+          title="IREE $latest available (pinned $pinned)"
+          if [ -n "$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')" ]; then
+            echo "Tracking issue already open."
+            exit 0
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" \
+            --body "A newer iree-base-runtime ($latest) is on PyPI than the pinned $pinned in scripts/iree-version.env. Bumping IREE is a manual step: update scripts/iree-version.env and the IREE_SHA + RELEASE_TAG constants in crates/iree-embedded-sys/build.rs, refresh crates/iree-embedded-sys/iree_bm_config.h from toolchains/iree_bm_config.h, regenerate the committed MCU bindings (IREE_EMBEDDED_REGENERATE_BINDINGS=1), then tag a release and refresh crates/iree-embedded-sys/runtime-checksums.txt with the new sha256. Opened automatically by the iree-version-check workflow; close to dismiss."
