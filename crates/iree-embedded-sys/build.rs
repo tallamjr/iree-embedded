@@ -96,8 +96,11 @@ fn main() {
         clang_args.push("--target=thumbv7em-none-eabihf".to_string());
         clang_args.push("-include".to_string());
         clang_args.push(bm_config.display().to_string());
-        if let Some(sysroot) = run_capture("arm-none-eabi-gcc", &["-print-sysroot"]) {
-            clang_args.push(format!("-isystem{sysroot}/include"));
+        // newlib system headers (inttypes.h etc.). `-print-sysroot` is empty on
+        // some packaged toolchains (Ubuntu's gcc-arm-none-eabi), so use the
+        // compiler's actual include search list, reliable everywhere.
+        for dir in arm_none_eabi_include_dirs() {
+            clang_args.push(format!("-isystem{dir}"));
         }
     } else if cfg!(target_os = "macos")
         && let Some(sdk) = run_capture("xcrun", &["--show-sdk-path"])
@@ -157,10 +160,19 @@ fn main() {
             .flag("-mfloat-abi=hard")
             .flag("-mfpu=fpv4-sp-d16")
             .flag("-fno-pic");
-    } else if let Some(p) = &llvm_prefix {
+    } else if cfg!(target_os = "macos") {
         // macOS's newer linker rejects non-8-byte-aligned archive members;
-        // llvm-ar pads them, the default `ar` does not.
-        wrappers.archiver(format!("{p}/bin/llvm-ar"));
+        // llvm-ar pads them, the default `ar` does not. `brew --prefix llvm`
+        // answers even when llvm is not installed (CI runners), so only
+        // override the archiver when a real llvm-ar exists (brew, then PATH).
+        let llvm_ar = llvm_prefix
+            .as_ref()
+            .map(|p| PathBuf::from(format!("{p}/bin/llvm-ar")))
+            .filter(|p| p.exists())
+            .or_else(|| run_capture("which", &["llvm-ar"]).map(PathBuf::from));
+        if let Some(ar) = llvm_ar {
+            wrappers.archiver(ar);
+        }
     }
     wrappers.compile("iree_static_wrappers");
 
@@ -168,6 +180,32 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=IREE_RUNTIME_DIR");
     println!("cargo:rerun-if-env-changed=IREE_SRC_DIR");
+}
+
+/// The C system include directories `arm-none-eabi-gcc` searches, parsed from
+/// its own verbose include list. Reliable even when `-print-sysroot` is empty
+/// (Ubuntu's packaged toolchain), so bindgen's clang finds the newlib headers.
+fn arm_none_eabi_include_dirs() -> Vec<String> {
+    let Ok(out) = std::process::Command::new("arm-none-eabi-gcc")
+        .args(["-E", "-Wp,-v", "-xc", "/dev/null"])
+        .output()
+    else {
+        return Vec::new();
+    };
+    // gcc prints the include search list to stderr.
+    let text = String::from_utf8_lossy(&out.stderr);
+    let mut dirs = Vec::new();
+    let mut in_list = false;
+    for line in text.lines() {
+        if line.contains("#include <...> search starts here:") {
+            in_list = true;
+        } else if line.contains("End of search list.") {
+            break;
+        } else if in_list {
+            dirs.push(line.trim().to_string());
+        }
+    }
+    dirs
 }
 
 /// Run a command and return its trimmed stdout, or None if it fails.
