@@ -27,16 +27,22 @@ STAGE="$(mktemp -d)/$NAME"
 mkdir -p "$STAGE" "$OUT"
 
 echo "== archives + generated headers =="
-(cd "$BUILD" && find . \
-    \( -name '*.a' -o \( -name '*.h' -path '*/runtime/src/*' \) \) \
-    -exec install -D -m 644 {} "$STAGE/build/{}" \; 2>/dev/null) || {
-  # BSD install lacks -D; portable fallback.
-  cd "$BUILD"
-  find . \( -name '*.a' -o \( -name '*.h' -path '*/runtime/src/*' \) \) | while read -r f; do
-    mkdir -p "$STAGE/build/$(dirname "$f")"
-    cp "$f" "$STAGE/build/$f"
-  done
-}
+# Portable copy loop. Do NOT use `install -D` here: it is GNU-only, BSD
+# install fails per-file on macOS runners, and `find -exec ... \;` exits 0
+# regardless, which silently produced an artefact with no archives (the
+# hollow host-darwin-arm64 asset first published for v0.1.0).
+(cd "$BUILD" && find . \( -name '*.a' -o \( -name '*.h' -path '*/runtime/src/*' \) \)) \
+  | while read -r f; do
+      mkdir -p "$STAGE/build/$(dirname "$f")"
+      cp "$BUILD/$f" "$STAGE/build/$f"
+    done
+
+# Tripwire: an artefact without archives is useless to consumers; fail loudly
+# rather than publish a hollow tarball.
+if [ -z "$(find "$STAGE/build" -name '*.a' -print -quit)" ]; then
+  echo "ERROR: no .a archives staged from $BUILD" >&2
+  exit 1
+fi
 
 echo "== public headers =="
 (cd "$SRC" && find runtime/src third_party/flatcc/include -name '*.h') | while read -r f; do
