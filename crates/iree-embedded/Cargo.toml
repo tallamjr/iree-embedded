@@ -16,4 +16,4 @@ categories = ["embedded", "no-std", "science"]
 iree-embedded-sys = { path = "../iree-embedded-sys", version = "0.1.0" }
 talc = { version = "4", default-features = false }
 spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"] }
-heapless = { version = "0.8", default-features = false }
+heapless = { version = "0.9", default-features = false }
