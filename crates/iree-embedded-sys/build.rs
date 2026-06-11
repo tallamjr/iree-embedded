@@ -5,6 +5,8 @@ fn main() {
     let root = manifest.join("../..").canonicalize().unwrap();
     let target = std::env::var("TARGET").unwrap_or_default();
     let is_mcu = target.starts_with("thumbv7em");
+    // Bindings differ only by data model: ILP32 on the MCU, LP64 on the host.
+    let variant = if is_mcu { "mcu" } else { "host" };
 
     // The out-of-band IREE runtime build (scripts/build-runtime-{host,mcu}.sh,
     // or an unpacked CI artefact). build.rs only LINKS this. For an artefact,
@@ -52,7 +54,113 @@ fn main() {
 
     let out = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let extern_c = out.join("extern.c");
+    let bindings_rs = out.join("bindings.rs");
 
+    // Pre-generated bindings are committed for the MCU (the deployment target,
+    // a fixed thumbv7em ABI) so a consumer needs no libclang: the default build
+    // copies them in. The host variant is not committed (it is dev/test only,
+    // and libclang is available there); it always regenerates. Refresh the
+    // committed copies with `IREE_EMBEDDED_REGENERATE_BINDINGS=1`, e.g. after
+    // bumping the pinned IREE version.
+    let gen_dir = manifest.join("generated");
+    let committed_bindings = gen_dir.join(format!("bindings_{variant}.rs"));
+    let committed_extern = gen_dir.join(format!("extern_{variant}.c"));
+    let explicit_regen = std::env::var_os("IREE_EMBEDDED_REGENERATE_BINDINGS").is_some();
+    let regenerate = explicit_regen || !committed_bindings.exists() || !committed_extern.exists();
+
+    // `brew --prefix llvm` (used for libclang when regenerating, and for the
+    // macOS archiver below) answers even when llvm is not installed.
+    let llvm_prefix = if cfg!(target_os = "macos") {
+        run_capture("brew", &["--prefix", "llvm"])
+    } else {
+        None
+    };
+
+    if regenerate {
+        generate_bindings(
+            &inc_src,
+            &inc_gen,
+            &inc_flatcc,
+            &bm_config,
+            is_mcu,
+            &llvm_prefix,
+            &bindings_rs,
+            &extern_c,
+        );
+        // Only a deliberate refresh updates the committed copies; an
+        // auto-regenerate (host, nothing committed) stays in OUT_DIR.
+        if explicit_regen {
+            std::fs::create_dir_all(&gen_dir).unwrap();
+            std::fs::copy(&bindings_rs, &committed_bindings).expect("save committed bindings");
+            std::fs::copy(&extern_c, &committed_extern).expect("save committed extern.c");
+        }
+    } else {
+        std::fs::copy(&committed_bindings, &bindings_rs).expect("use committed bindings");
+        std::fs::copy(&committed_extern, &extern_c).expect("use committed extern.c");
+    }
+
+    // Compile the generated wrappers for the static-inline helpers.
+    let mut wrappers = cc::Build::new();
+    wrappers
+        .file(&extern_c)
+        .include(&manifest)
+        .include(&inc_src)
+        .include(&inc_gen)
+        .include(&inc_flatcc);
+    if is_mcu {
+        // Force the cross compiler (cc-rs otherwise picks Homebrew gcc), then
+        // force-include the config and M4F flags so the wrapper ABI matches.
+        // cc-rs adds -fPIC by default; that emits GOT relocations the cortex-m
+        // linker script rejects. Force non-PIC.
+        wrappers.pic(false);
+        wrappers
+            .compiler("arm-none-eabi-gcc")
+            .flag("-include")
+            .flag(bm_config.to_str().unwrap())
+            .flag("-mcpu=cortex-m4")
+            .flag("-mthumb")
+            .flag("-mfloat-abi=hard")
+            .flag("-mfpu=fpv4-sp-d16")
+            .flag("-fno-pic");
+    } else if cfg!(target_os = "macos") {
+        // macOS's newer linker rejects non-8-byte-aligned archive members;
+        // llvm-ar pads them, the default `ar` does not. `brew --prefix llvm`
+        // answers even when llvm is not installed (CI runners), so only
+        // override the archiver when a real llvm-ar exists (brew, then PATH).
+        let llvm_ar = llvm_prefix
+            .as_ref()
+            .map(|p| PathBuf::from(format!("{p}/bin/llvm-ar")))
+            .filter(|p| p.exists())
+            .or_else(|| run_capture("which", &["llvm-ar"]).map(PathBuf::from));
+        if let Some(ar) = llvm_ar {
+            wrappers.archiver(ar);
+        }
+    }
+    wrappers.compile("iree_static_wrappers");
+
+    println!("cargo:rerun-if-changed=wrapper.h");
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=generated");
+    println!("cargo:rerun-if-env-changed=IREE_RUNTIME_DIR");
+    println!("cargo:rerun-if-env-changed=IREE_SRC_DIR");
+    println!("cargo:rerun-if-env-changed=IREE_EMBEDDED_REGENERATE_BINDINGS");
+}
+
+/// Run bindgen against the IREE headers, writing `bindings.rs` and the C
+/// wrapper source (`extern.c`) for IREE's `static inline` helpers. Only invoked
+/// when regenerating the committed bindings; this is the one path that needs
+/// libclang.
+#[allow(clippy::too_many_arguments)]
+fn generate_bindings(
+    inc_src: &std::path::Path,
+    inc_gen: &std::path::Path,
+    inc_flatcc: &std::path::Path,
+    bm_config: &std::path::Path,
+    is_mcu: bool,
+    llvm_prefix: &Option<String>,
+    bindings_rs: &std::path::Path,
+    extern_c: &std::path::Path,
+) {
     // Clang args for bindgen, matched to the target so struct layouts are
     // correct (the MCU is 32-bit with IREE_DEVICE_SIZE_T=uint32_t).
     let mut clang_args: Vec<String> = vec![
@@ -61,17 +169,11 @@ fn main() {
         format!("-I{}", inc_flatcc.display()),
     ];
 
-    let llvm_prefix = if cfg!(target_os = "macos") {
-        run_capture("brew", &["--prefix", "llvm"])
-    } else {
-        None
-    };
     if cfg!(target_os = "macos") && std::env::var_os("LIBCLANG_PATH").is_none() {
-        // `brew --prefix llvm` answers even when llvm is not installed (CI
-        // runners), so verify the dylib actually exists and fall back to the
-        // Xcode / Command Line Tools copy.
+        // `brew --prefix llvm` answers even when llvm is not installed, so
+        // verify the dylib exists and fall back to the Xcode / CLT copy.
         let mut candidates: Vec<PathBuf> = Vec::new();
-        if let Some(p) = &llvm_prefix {
+        if let Some(p) = llvm_prefix {
             candidates.push(PathBuf::from(format!("{p}/lib")));
         }
         if let Some(xc) = run_capture("xcode-select", &["-p"]) {
@@ -128,58 +230,12 @@ fn main() {
         .wrap_unsafe_ops(true)
         // Many IREE helpers are `static inline`; emit C wrappers for them.
         .wrap_static_fns(true)
-        .wrap_static_fns_path(&extern_c);
+        .wrap_static_fns_path(extern_c);
     for arg in &clang_args {
         builder = builder.clang_arg(arg);
     }
     let bindings = builder.generate().expect("bindgen failed");
-    bindings
-        .write_to_file(out.join("bindings.rs"))
-        .expect("write bindings");
-
-    // Compile the generated wrappers for the static-inline helpers.
-    let mut wrappers = cc::Build::new();
-    wrappers
-        .file(&extern_c)
-        .include(&manifest)
-        .include(&inc_src)
-        .include(&inc_gen)
-        .include(&inc_flatcc);
-    if is_mcu {
-        // Force the cross compiler (cc-rs otherwise picks Homebrew gcc), then
-        // force-include the config and M4F flags so the wrapper ABI matches.
-        // cc-rs adds -fPIC by default; that emits GOT relocations the cortex-m
-        // linker script rejects. Force non-PIC.
-        wrappers.pic(false);
-        wrappers
-            .compiler("arm-none-eabi-gcc")
-            .flag("-include")
-            .flag(bm_config.to_str().unwrap())
-            .flag("-mcpu=cortex-m4")
-            .flag("-mthumb")
-            .flag("-mfloat-abi=hard")
-            .flag("-mfpu=fpv4-sp-d16")
-            .flag("-fno-pic");
-    } else if cfg!(target_os = "macos") {
-        // macOS's newer linker rejects non-8-byte-aligned archive members;
-        // llvm-ar pads them, the default `ar` does not. `brew --prefix llvm`
-        // answers even when llvm is not installed (CI runners), so only
-        // override the archiver when a real llvm-ar exists (brew, then PATH).
-        let llvm_ar = llvm_prefix
-            .as_ref()
-            .map(|p| PathBuf::from(format!("{p}/bin/llvm-ar")))
-            .filter(|p| p.exists())
-            .or_else(|| run_capture("which", &["llvm-ar"]).map(PathBuf::from));
-        if let Some(ar) = llvm_ar {
-            wrappers.archiver(ar);
-        }
-    }
-    wrappers.compile("iree_static_wrappers");
-
-    println!("cargo:rerun-if-changed=wrapper.h");
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-env-changed=IREE_RUNTIME_DIR");
-    println!("cargo:rerun-if-env-changed=IREE_SRC_DIR");
+    bindings.write_to_file(bindings_rs).expect("write bindings");
 }
 
 /// The C system include directories `arm-none-eabi-gcc` searches, parsed from

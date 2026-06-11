@@ -755,3 +755,7 @@ dkms.conf
 # is the "build once, out of band" step, kept out of cargo and out of git).
 /.iree
 /runtime-build
+
+# Transient host bindings (regenerated each build; only the MCU variant is committed)
+crates/iree-embedded-sys/generated/bindings_host.rs
+crates/iree-embedded-sys/generated/extern_host.c
