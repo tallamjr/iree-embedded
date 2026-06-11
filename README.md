@@ -51,7 +51,7 @@ Three reasons to want it:
   ONNX, PyTorch via Torch-MLIR, JAX) and ahead-of-time compiles kernels for
   your exact CPU. This crate makes that pipeline reachable from Rust firmware.
 
-### Why IREE and not ONNX Runtime or TFLite-Micro?
+### Why IREE and not ONNX Runtime, TFLite-Micro, TVM, or MicroFlow?
 
 The practical benefits this project leans on:
 
@@ -75,6 +75,27 @@ is constrained or unusual, which is exactly the embedded niche this crate
 serves. The closer comparison for this use case is not really ORT at all but
 TFLite-Micro, where the same logic applies: TFLM interprets against a fixed
 kernel library, IREE compiles.
+
+**What about TVM?** Architecturally the closest relative: Apache TVM is also
+an ahead-of-time compiler, and its microTVM project targeted this same
+bare-metal Cortex-M niche with a C runtime and AoT executor. The difference is
+momentum and the runtime half. microTVM has stagnated upstream (its
+maintainers moved on as the TVM project's focus shifted towards LLM serving),
+its bare-metal story leans on generated C glue per project, and there are no
+Rust bindings. IREE's runtime is a small, actively developed C library with a
+HAL built for single-threaded bare-metal targets, which is precisely the piece
+this crate binds.
+
+**What about [MicroFlow](https://github.com/matteocarnelos/microflow-rs)?**
+A genuinely elegant alternative, and the right tool for some jobs: it is pure
+Rust end to end (no C toolchain at all), its procedural macro parses the
+`.tflite` flatbuffer at compile time into static Rust code, and it runs on
+parts far smaller than this crate targets (down to 8-bit AVR). The trade-offs
+are a small fixed operator set, a TFLite-only front door, and portable Rust
+kernels rather than per-CPU compiled ones. If a small quantised TFLite model
+fits MicroFlow's ops, it is the simpler choice; this crate is for when you
+want the full compiler front door (ONNX, PyTorch, JAX), broad op coverage,
+and kernels code-generated for your exact core.
 
 ## Status
 
