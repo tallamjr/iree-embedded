@@ -88,6 +88,14 @@ macro_rules! singleton {
 /// firmware and pass the symbol here; give the result to
 /// [`Device::local_sync_static`](crate::Device::local_sync_static).
 ///
+/// # Contract
+///
+/// `$sym` must name the query function of an IREE static library, emitted by
+/// `iree-compile` alongside the object file (the `*_library_query` symbol in
+/// its generated header). The macro declares, it cannot verify: naming any
+/// other symbol misdeclares its ABI, and invoking the device on it is
+/// undefined behaviour.
+///
 /// ```ignore
 /// let device = Device::local_sync_static(
 ///     &arena,
