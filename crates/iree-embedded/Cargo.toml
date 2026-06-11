@@ -14,6 +14,8 @@ categories = ["embedded", "no-std", "science"]
 [dependencies]
 # version is required alongside path so the dependency resolves once published.
 iree-embedded-sys = { path = "../iree-embedded-sys", version = "0.1.0" }
+# talc 5 is a from-scratch API rewrite; pinned at 4 (works, no functional gain
+# from porting). Revisit if 4.x stops receiving fixes.
 talc = { version = "4", default-features = false }
-spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"] }
-heapless = { version = "0.8", default-features = false }
+spin = { version = "0.12", default-features = false, features = ["mutex", "spin_mutex"] }
+heapless = { version = "0.9", default-features = false }
