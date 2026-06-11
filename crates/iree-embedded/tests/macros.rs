@@ -33,3 +33,39 @@ fn second_take_of_the_same_site_panics() {
     first[0] = 1;
     let _second = take();
 }
+
+#[test]
+fn concurrent_takes_yield_exactly_one_winner() {
+    use std::sync::{Arc, Barrier};
+
+    fn take() -> &'static mut [u8; 8] {
+        iree_embedded::singleton!([u8; 8] = [0; 8])
+    }
+
+    let threads = 8;
+    let barrier = Arc::new(Barrier::new(threads));
+    let handles: Vec<_> = (0..threads)
+        .map(|_| {
+            let barrier = Arc::clone(&barrier);
+            std::thread::spawn(move || {
+                barrier.wait();
+                std::panic::catch_unwind(|| take().len()).is_ok()
+            })
+        })
+        .collect();
+    let winners = handles
+        .into_iter()
+        .map(|h| h.join().unwrap())
+        .filter(|succeeded| *succeeded)
+        .count();
+    assert_eq!(winners, 1, "exactly one take must succeed under contention");
+}
+
+#[test]
+fn distinct_call_sites_are_independent() {
+    let a: &'static mut u8 = iree_embedded::singleton!(u8 = 1);
+    let b: &'static mut u8 = iree_embedded::singleton!(u8 = 2);
+    *a += 10;
+    assert_eq!(*a, 11);
+    assert_eq!(*b, 2);
+}

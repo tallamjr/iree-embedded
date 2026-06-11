@@ -35,7 +35,7 @@ macro_rules! include_vmfb {
     }};
 }
 
-/// Hand out a unique `&'static mut` to a static, at most once.
+/// Hand out a unique `&'static mut` to a static, at most once per call site.
 ///
 /// The initialiser must be a const expression: the value is a real `static`,
 /// living in `.bss`/`.data` like any other, so a multi-kilobyte arena costs
@@ -43,6 +43,16 @@ macro_rules! include_vmfb {
 /// initialiser, as cell-based abstractions do, can overflow a small MCU
 /// stack before the move is elided). A second take of the same call site
 /// panics rather than aliasing the `&mut`.
+///
+/// # Panics
+///
+/// Panics on a second take of the same call site, and in any concurrent race
+/// all but one taker panics.
+///
+/// # Target requirements
+///
+/// The guard uses an atomic swap, available on Cortex-M3 and above
+/// (thumbv7/thumbv8); it is not available on thumbv6m (Cortex-M0/M0+).
 ///
 /// ```
 /// let heap: &'static mut [u8; 1024] = iree_embedded::singleton!([u8; 1024] = [0; 1024]);
@@ -55,6 +65,10 @@ macro_rules! singleton {
             ::core::sync::atomic::AtomicBool::new(false);
         static mut SLOT: $t = $init;
         assert!(
+            // The swap is an atomic read-modify-write, so exactly one caller
+            // can ever observe `false`; all concurrent racers observe `true`
+            // and hit the assert. `AcqRel` is deliberately conservative; the
+            // uniqueness argument needs only the RMW's atomicity.
             !TAKEN.swap(true, ::core::sync::atomic::Ordering::AcqRel),
             "iree_embedded::singleton! taken more than once"
         );
