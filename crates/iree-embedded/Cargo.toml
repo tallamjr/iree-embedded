@@ -2,11 +2,18 @@
 name = "iree-embedded"
 version = "0.1.0"
 edition = "2024"
-publish = false
+rust-version = "1.85"
 description = "Safe no_std Rust API for ML inference on Cortex-M via the IREE runtime."
+authors = ["Tarek Allam Jr <t.allam.jr@gmail.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tallamjr/iree-embedded"
+readme = "README.md"
+keywords = ["iree", "embedded", "no_std", "inference", "cortex-m"]
+categories = ["embedded", "no-std", "science"]
 
 [dependencies]
-iree-embedded-sys = { path = "../iree-embedded-sys" }
+# version is required alongside path so the dependency resolves once published.
+iree-embedded-sys = { path = "../iree-embedded-sys", version = "0.1.0" }
 talc = { version = "4", default-features = false }
 spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"] }
 heapless = { version = "0.8", default-features = false }

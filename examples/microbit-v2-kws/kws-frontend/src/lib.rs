@@ -7,6 +7,7 @@
 //! (~13 KiB), so firmware can keep it in a static.
 
 #![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
 
 mod bits;
 mod fft;

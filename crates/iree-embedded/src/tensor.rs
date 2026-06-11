@@ -5,6 +5,8 @@ use core::ffi::c_void;
 use crate::{Device, Result, check};
 use iree_embedded_sys as sys;
 
+/// A device buffer with shape and element type: an input to or output from
+/// [`Context::invoke`](crate::Context::invoke).
 pub struct Tensor {
     raw: *mut sys::iree_hal_buffer_view_t,
 }

@@ -3,11 +3,13 @@
 use crate::{Arena, Result, check};
 use iree_embedded_sys as sys;
 
+/// The IREE VM instance: the top-level runtime object shared across sessions.
 pub struct Instance {
     raw: *mut sys::iree_vm_instance_t,
 }
 
 impl Instance {
+    /// Create a VM instance, allocating from `arena`.
     pub fn new(arena: &Arena) -> Result<Self> {
         let mut raw = core::ptr::null_mut();
         // SAFETY: out-pointer is valid; allocator outlives the instance.

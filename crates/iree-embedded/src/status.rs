@@ -8,19 +8,29 @@ use iree_embedded_sys as sys;
 
 const CODE_MASK: usize = 0x1F;
 
+/// A coarse classification of an IREE failure, mapped from the raw status code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatusCode {
+    /// The operation was aborted.
     Aborted,
+    /// An allocation could not be satisfied (the arena is too small).
     OutOfMemory,
+    /// A requested entity (function or symbol) was not found.
     NotFound,
+    /// An argument was invalid.
     InvalidArgument,
+    /// The operation is not implemented for this configuration.
     Unimplemented,
+    /// An internal runtime error.
     Internal,
+    /// A status code this crate does not classify.
     Unknown,
 }
 
 const MSG_CAP: usize = 192;
 
+/// An IREE failure: a classified [`StatusCode`], the raw code, and the
+/// formatted status message (source location and annotations).
 #[derive(Clone, Copy)]
 pub struct Error {
     code: StatusCode,
@@ -30,6 +40,7 @@ pub struct Error {
 }
 
 impl Error {
+    /// The classified status code.
     pub fn code(&self) -> StatusCode {
         self.code
     }
@@ -57,6 +68,7 @@ impl core::fmt::Debug for Error {
     }
 }
 
+/// The result type returned by fallible operations in this crate.
 pub type Result<T> = core::result::Result<T, Error>;
 
 /// Consume an `iree_status_t`: `Ok` for the OK (null) status, otherwise map the

@@ -22,6 +22,10 @@ const HEADER: usize = 16;
 /// IREE's default allocation alignment (`iree_max_align_t` on 64-bit targets).
 const ALIGN: usize = 16;
 
+/// A fixed-size memory pool backing every IREE allocation. Built over a static
+/// byte buffer the caller provides; IREE's runtime allocates and frees objects
+/// inside it through a `talc` allocator, so it behaves like a heap of a
+/// compile-time-constant size.
 pub struct Arena {
     talc: Mutex<Talc<ClaimOnOom>>,
 }

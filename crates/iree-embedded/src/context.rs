@@ -15,12 +15,16 @@ pub struct Function {
     raw: sys::iree_vm_function_t,
 }
 
+/// A loaded model: the HAL module plus the bytecode module from a `.vmfb`,
+/// ready to resolve and invoke functions. Borrows its [`Instance`].
 pub struct Context<'i> {
     raw: *mut sys::iree_vm_context_t,
     _instance: PhantomData<&'i Instance>,
 }
 
 impl<'i> Context<'i> {
+    /// Load the model `vmfb` onto `device`, allocating from `arena`. The bytes
+    /// must outlive the context (use [`include_vmfb!`](crate::include_vmfb)).
     pub fn new(
         instance: &'i Instance,
         device: &Device,
@@ -86,6 +90,8 @@ impl<'i> Context<'i> {
         }
     }
 
+    /// Look up an exported function by its fully qualified `name`
+    /// (for example `"module.main"`).
     pub fn resolve(&self, name: &str) -> Result<Function> {
         let mut raw: sys::iree_vm_function_t = unsafe { core::mem::zeroed() };
         // SAFETY: name is a valid UTF-8 slice; out-pointer is valid.

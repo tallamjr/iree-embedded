@@ -1,5 +1,10 @@
 # iree-embedded
 
+[![CI](https://github.com/tallamjr/iree-embedded/actions/workflows/runtime.yml/badge.svg)](https://github.com/tallamjr/iree-embedded/actions/workflows/runtime.yml)
+[![crates.io](https://img.shields.io/crates/v/iree-embedded.svg)](https://crates.io/crates/iree-embedded)
+[![docs.rs](https://docs.rs/iree-embedded/badge.svg)](https://docs.rs/iree-embedded)
+[![licence: MIT OR Apache-2.0](https://img.shields.io/badge/licence-MIT%20OR%20Apache--2.0-blue.svg)](#licence)
+
 An embedded `no_std` Rust runtime for machine-learning inference on Cortex-M
 microcontrollers, built on [IREE](https://iree.dev)'s bare-metal C runtime.
 
@@ -160,5 +165,10 @@ cross-build and model recompile for that target triple, both mechanical.
 
 ## Licence
 
-To be decided before first release (Apache-2.0 or MIT/Apache dual, to match
-the Rust and IREE ecosystems).
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
+[MIT licence](LICENSE-MIT) at your option, matching the Rust and IREE
+ecosystems.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 licence, shall be
+dual licensed as above, without any additional terms or conditions.

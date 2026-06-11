@@ -19,6 +19,10 @@ pub type LibraryQueryFn = unsafe extern "C" fn(
     environment: *const core::ffi::c_void,
 ) -> *const core::ffi::c_void;
 
+/// A synchronous, single-threaded local CPU device that executes a model's
+/// kernels. Created with either the static-library loader
+/// ([`local_sync_static`](Device::local_sync_static)) or the embedded-ELF
+/// loader ([`local_sync`](Device::local_sync)).
 pub struct Device {
     raw: *mut sys::iree_hal_device_t,
 }
@@ -46,6 +50,9 @@ impl Device {
         }
     }
 
+    /// Device using the embedded-ELF loader, for a `.vmfb` whose kernels are
+    /// position-independent ELF mapped into RAM (the host-test path; the MCU
+    /// uses [`local_sync_static`](Device::local_sync_static)).
     pub fn local_sync(arena: &Arena) -> Result<Self> {
         let alloc = arena.as_iree_allocator();
         // SAFETY: every out-pointer is valid; the arena outlives the device.

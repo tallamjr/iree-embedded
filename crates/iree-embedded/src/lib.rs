@@ -1,4 +1,14 @@
+//! A safe, `no_std` Rust API for machine-learning inference on Cortex-M
+//! microcontrollers, built on [IREE](https://iree.dev)'s bare-metal C runtime.
+//!
+//! The runtime half of IREE (loading a compiled model and invoking it) is
+//! wrapped in six RAII types ([`Arena`], [`Instance`], [`Device`], [`Context`],
+//! [`Tensor`], [`Error`]) so leaks and double-frees are compile-time
+//! impossibilities and every fallible call returns a [`Result`] carrying the
+//! real IREE status message. See the repository for a complete firmware
+//! example and the model-compilation workflow.
 #![cfg_attr(not(test), no_std)]
+#![deny(missing_docs)]
 // `Error` inlines a 192-byte IREE status message buffer, so `Result` Err
 // variants are large. Deliberate: this is `no_std` with no global allocator,
 // and the most important error to report is allocator exhaustion, so the
@@ -8,8 +18,8 @@
 
 /// Embed a compiled `.vmfb` as a 64-byte-aligned `&'static [u8]`.
 ///
-/// IREE's FlatBuffer verifier requires the module header to be aligned, and —
-/// critically — the rodata segments (model weights) inside are only used
+/// IREE's FlatBuffer verifier requires the module header to be aligned, and,
+/// critically, the rodata segments (model weights) inside are only used
 /// *in place* when they meet HAL buffer alignment (64 bytes). An underaligned
 /// module silently falls back to staging copies through the device queue,
 /// which costs RAM and deadlocks the bare-metal single-threaded HAL. A plain

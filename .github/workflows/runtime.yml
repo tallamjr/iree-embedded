@@ -11,6 +11,23 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Fast formatting gate (no runtime needed).
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install stable --profile minimal --component rustfmt
+      - run: cargo fmt --all --check
+
+  # Dependency licence + security-advisory audit (no runtime needed).
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check bans licenses sources advisories
+
   # Host runtime build + the crate test suite against it.
   host:
     strategy:
@@ -33,6 +50,11 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           cargo test -p iree-embedded
+      - name: Clippy (workspace, deny warnings)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          rustup component add clippy
+          cargo clippy --workspace --all-targets -- -D warnings
       - name: Package artefact
         run: scripts/package-runtime.sh .iree/build/host host-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)
       - uses: actions/upload-artifact@v4
