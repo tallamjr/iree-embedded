@@ -122,13 +122,13 @@ mod tests {
 
     #[test]
     fn aborted_maps_to_error() {
-        let st = status_of(sys::IREE_STATUS_ABORTED as u32);
+        let st = status_of(sys::IREE_STATUS_ABORTED);
         assert_eq!(check(st).unwrap_err().code(), StatusCode::Aborted);
     }
 
     #[test]
     fn resource_exhausted_maps_to_oom() {
-        let st = status_of(sys::IREE_STATUS_RESOURCE_EXHAUSTED as u32);
+        let st = status_of(sys::IREE_STATUS_RESOURCE_EXHAUSTED);
         assert_eq!(check(st).unwrap_err().code(), StatusCode::OutOfMemory);
     }
 }

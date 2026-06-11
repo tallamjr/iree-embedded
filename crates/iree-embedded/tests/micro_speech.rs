@@ -28,7 +28,7 @@ fn micro_speech_predicts_yes() {
     let infer = ctx.resolve("module.tf2onnx").expect("resolve");
 
     // micro_speech input: uint8 spectrogram [1, 49, 40, 1] = 1960 features.
-    assert_eq!(YES_FEATURES.len(), 1 * 49 * 40 * 1);
+    assert_eq!(YES_FEATURES.len(), 49 * 40);
     let input = Tensor::from_u8(&device, &[1, 49, 40, 1], YES_FEATURES).expect("input");
 
     let outputs = ctx.invoke(infer, &[&input], &arena).expect("invoke");
