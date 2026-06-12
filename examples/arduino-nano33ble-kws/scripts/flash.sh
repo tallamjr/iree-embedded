@@ -37,16 +37,27 @@ EOF
   exit 1
 fi
 
-# First matching port, or empty. A bare unmatched glob stays literal, so test
-# -e filters it; nothing here can fail under set -euo pipefail.
+# First matching port, or empty. Takes the FIRST matching port, so with several
+# boards plugged in the first one wins. The glob is OS-aware (macOS names ports
+# /dev/cu.usbmodem*, Linux /dev/ttyACM*). A bare unmatched glob stays literal, so
+# test -e filters it; nothing here can fail under set -euo pipefail.
 find_port() {
   local p
-  for p in /dev/cu.usbmodem*; do
-    if [ -e "$p" ]; then
-      printf '%s\n' "$p"
-      return 0
-    fi
-  done
+  if [ "$(uname -s)" = "Darwin" ]; then
+    for p in /dev/cu.usbmodem*; do
+      if [ -e "$p" ]; then
+        printf '%s\n' "$p"
+        return 0
+      fi
+    done
+  else
+    for p in /dev/ttyACM*; do
+      if [ -e "$p" ]; then
+        printf '%s\n' "$p"
+        return 0
+      fi
+    done
+  fi
   return 0
 }
 
@@ -72,7 +83,7 @@ fi
 
 if [ -z "$PORT" ]; then
   cat >&2 <<'EOF'
-ERROR: no /dev/cu.usbmodem* port found.
+ERROR: no board serial port found (/dev/cu.usbmodem* on macOS, /dev/ttyACM* on Linux).
 Put the board in bootloader mode: double-tap the small reset button (the
 orange LED will slowly fade in and out), then re-run:
   cargo run --release

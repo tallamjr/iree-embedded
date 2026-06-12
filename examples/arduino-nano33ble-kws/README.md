@@ -23,6 +23,10 @@ verified on hardware.
     bundles `bossac 1.9.1-arduino2`. The flash script finds the bundled copy at
     `~/Library/Arduino15/...` automatically, so it need not be on `PATH`.
 
+Linux works too: the board's serial port appears as `/dev/ttyACM*` and the flash
+script probes for it automatically, with `bossac` coming from your distribution's
+package or the Arduino tools.
+
 ## Flash and run
 
 From this directory:
