@@ -47,9 +47,9 @@ Three reasons to want it:
   did not fit. Each of these was found the hard way on real hardware.
 
 - **The IREE compiler as the front door.** TFLite-Micro interprets ops from a
-  fixed C++ kernel library; IREE ingests models from any framework (TFLite,
-  ONNX, PyTorch via Torch-MLIR, JAX) and ahead-of-time compiles kernels for
-  your exact CPU. This crate makes that pipeline reachable from Rust firmware.
+  fixed C++ kernel library; IREE ingests models from any framework (TFLite, ONNX,
+  PyTorch via Torch-MLIR, JAX) and ahead-of-time compiles kernels for your exact
+  CPU/NPU etc. This crate makes that pipeline reachable from Rust firmware.
 
 ### Why IREE and not ONNX Runtime, TFLite-Micro, TVM, or MicroFlow?
 
@@ -143,12 +143,12 @@ Stack: `embassy-executor`, `embassy-nrf` (the nRF device HAL), `cortex-m-rt`,
 
 ## Workspace
 
-| Crate                      | Purpose                                                                                                                  |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `crates/iree-embedded-sys` | Raw `bindgen` FFI to the prebuilt IREE runtime (the only FFI crate).                                                     |
-| `crates/iree-embedded`     | Safe `no_std` public API.                                                                                                |
-| `examples/microbit-v2-kws` | Live keyword-spotting demo; a self-contained workspace that bundles its own pure-Rust audio front end (`kws-frontend/`). |
-| `examples/arduino-nano33ble-kws` | The same demo on the Nano 33 BLE Sense (PDM mic, USB flashing, LED feedback); equally self-contained. |
+| Crate                            | Purpose                                                                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `crates/iree-embedded-sys`       | Raw `bindgen` FFI to the prebuilt IREE runtime (the only FFI crate).                                                     |
+| `crates/iree-embedded`           | Safe `no_std` public API.                                                                                                |
+| `examples/microbit-v2-kws`       | Live keyword-spotting demo; a self-contained workspace that bundles its own pure-Rust audio front end (`kws-frontend/`). |
+| `examples/arduino-nano33ble-kws` | The same demo on the Nano 33 BLE Sense (PDM mic, USB flashing, LED feedback); equally self-contained.                    |
 
 ## Building
 

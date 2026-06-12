@@ -1,6 +1,6 @@
 [package]
 name = "iree-embedded"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.85"
 description = "Safe no_std Rust API for ML inference on Cortex-M via the IREE runtime."
@@ -19,7 +19,7 @@ targets = []
 
 [dependencies]
 # version is required alongside path so the dependency resolves once published.
-iree-embedded-sys = { path = "../iree-embedded-sys", version = "0.1.0" }
+iree-embedded-sys = { path = "../iree-embedded-sys", version = "0.1.1" }
 # talc 5 is a from-scratch API rewrite; pinned at 4 (works, no functional gain
 # from porting). Revisit if 4.x stops receiving fixes.
 talc = { version = "4", default-features = false }
