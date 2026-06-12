@@ -203,7 +203,8 @@ artefacts are CI-build-only until someone runs them on silicon.
 
 The crates are board-agnostic: anything Cortex-M4F-class reuses the prebuilt
 runtime and even the same compiled model artefacts unchanged. A new board
-(say, an Arduino Nano 33 BLE Sense, nRF52840) needs only a new example:
+needs only a new example, and the Nano 33 BLE Sense port above is the worked
+instance of this recipe:
 
 1. `memory.x` for the chip's flash/RAM (and app offset if a bootloader stays
    resident),
