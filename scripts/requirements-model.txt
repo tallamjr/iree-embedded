@@ -2,6 +2,10 @@
 # recorded in the committed MLIR's metadata (producer tf2onnx 1.17.0). Used by
 # examples/*/scripts/compile-model.sh --from-tflite; never needed in CI.
 #
+# Requires Python 3.11 (TensorFlow 2.15.1 publishes no newer wheels):
+#   uv venv --python 3.11 .venv-model
+#   uv pip install --python .venv-model -r scripts/requirements-model.txt
+#
 # tensorflow (not tensorflow-cpu): tensorflow-cpu publishes no macOS arm64
 # wheels, so on Apple Silicon the cpu variant is unresolvable. The full
 # tensorflow package ships arm64 wheels at the same 2.15.1 version that
@@ -9,4 +13,4 @@
 tf2onnx==1.17.0
 tensorflow==2.15.1
 onnx==1.16.2
-numpy<2
+numpy==1.26.4
