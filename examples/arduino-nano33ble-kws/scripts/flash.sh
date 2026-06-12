@@ -37,7 +37,18 @@ EOF
   exit 1
 fi
 
-find_port() { ls /dev/cu.usbmodem* 2>/dev/null | head -1; }
+# First matching port, or empty. A bare unmatched glob stays literal, so test
+# -e filters it; nothing here can fail under set -euo pipefail.
+find_port() {
+  local p
+  for p in /dev/cu.usbmodem*; do
+    if [ -e "$p" ]; then
+      printf '%s\n' "$p"
+      return 0
+    fi
+  done
+  return 0
+}
 
 PORT="$(find_port)"
 if [ -n "$PORT" ]; then
