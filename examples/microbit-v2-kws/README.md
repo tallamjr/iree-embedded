@@ -19,7 +19,7 @@ full pipeline runs on the chip.
 
 Everything above is **pure Rust**. The only non-Rust artefacts are the IREE
 runtime (a vendored C library this project provides safe bindings over) and the
-model itself (`model.o`/`model.vmfb`, the ahead-of-time output of
+model itself (`micro_speech.o`/`micro_speech.vmfb`, the ahead-of-time output of
 `iree-compile`, i.e. machine code, not source).
 
 ```sh
@@ -88,47 +88,74 @@ x16 digital gain before the front end.
 
 - Rust target: `rustup target add thumbv7em-none-eabihf`
 - [`probe-rs`](https://probe.rs/) installed
-- IREE host tools on `PATH`: `iree-import-tflite`, `iree-compile`
+- `iree-compile` on `PATH` (stage 2 of Phase 1): the pinned pip release, see
+  `scripts/iree-version.env`
 - The IREE runtime cross-built for the board: `scripts/build-runtime-mcu.sh`
-- The model: `micro_speech.tflite` from
-  [`tensorflow/tflite-micro`](https://github.com/tensorflow/tflite-micro)
-  (`tensorflow/lite/micro/examples/micro_speech`)
+- The model is committed at `models/micro_speech.tflite` (provenance below), so
+  nothing needs fetching
 
 ## Two-phase workflow
 
 ### Phase 1: package the model (occasional, host)
 
-Turn a `.tflite` into linkable artefacts. Run once per model.
+Everything is scripted; regenerate the committed artefacts with:
 
 ```sh
-# 1. import: TFLite flatbuffer -> TOSA MLIR
-iree-import-tflite micro_speech.tflite -o model.mlir
-
-# 2. compile: -> static-library kernels (.o) + VM program (.vmfb)
-iree-compile \
-  --iree-hal-target-device=local \
-  --iree-hal-local-target-device-backends=llvm-cpu \
-  --iree-llvmcpu-target-triple=thumbv7em-none-eabihf \
-  --iree-llvmcpu-target-cpu=cortex-m4 \
-  --iree-llvmcpu-target-float-abi=hard \
-  --iree-llvmcpu-link-embedded=false \
-  --iree-llvmcpu-link-static \
-  --iree-llvmcpu-static-library-output-path=model.o \
-  --iree-vm-target-index-bits=32 \
-  model.mlir -o model.vmfb
+scripts/compile-model.sh                # MLIR -> .o/.h/.vmfb (stage 2)
+scripts/compile-model.sh --from-tflite  # also tflite -> MLIR first (stage 1)
 ```
 
-This produces `model.o`, `model.h`, and `model.vmfb`, which live in `models/`
-and are committed so the demo builds out of the box. `model.vmfb` is embedded
-with `include_vmfb!`; `model.o` is archived by `build.rs` and linked into the
-firmware, so the kernels execute in place from flash (the embedded-ELF loader
-would instead copy them into RAM, which the nRF52833 cannot spare; its
-64 KiB-aligned segments alone need 192 KiB). The firmware registers the
-`*_library_query` symbol from `model.h` with
-`Device::local_sync_static`.
+The pipeline behind it (`models/` carries every input):
+
+```
+micro_speech.tflite      original quantised model (see provenance below)
+  -> tf2onnx 1.17.0      TFLite -> ONNX (opset 13), graph truncated at the
+                         pre-softmax tensor: the firmware argmaxes raw
+                         logits, so softmax is dead weight on an M4
+  -> iree-import-onnx    ONNX -> MLIR (micro_speech_nosm.mlir, committed)
+  -> iree-compile        -> micro_speech.o/.h (static kernels) + .vmfb (VM
+                         program), with the flags in compile-model.sh
+```
+
+Stage 2 needs only the pinned compiler
+(`pip install "iree-base-compiler==3.11.0"`, see `scripts/iree-version.env`);
+stage 1 additionally needs the conversion toolchain described in
+`scripts/requirements-model.txt` (Python 3.11 via uv; TensorFlow and tf2onnx).
+A stage-1 rerun differs cosmetically from the committed MLIR (tf2onnx's
+generated names are not run-stable) while compiling identically. CI runs
+stage 2 on every push and rebuilds this firmware against the fresh artefacts.
+
+The artefacts live in `models/` and are committed so the demo builds out of the
+box. `micro_speech.vmfb` is embedded with `include_vmfb!`; `micro_speech.o` is
+archived by `build.rs` and linked into the firmware, so the kernels execute in
+place from flash (the embedded-ELF loader would instead copy them into RAM,
+which the nRF52833 cannot spare; its 64 KiB-aligned segments alone need
+192 KiB). The firmware registers the `*_library_query` symbol from
+`micro_speech.h` with `Device::local_sync_static`.
 
 The compile target triple **must match** the firmware target: the kernels in
-`model.o` are real Cortex-M machine code.
+`micro_speech.o` are real Cortex-M machine code.
+
+### Model and test-vector provenance
+
+- `models/micro_speech.tflite`: the original uint8 micro_speech keyword
+  spotting model, from the TensorFlow micro_speech example bundle
+  [`micro_speech_2020_04_13.zip`](https://storage.googleapis.com/download.tensorflow.org/models/tflite/micro/micro_speech_2020_04_13.zip)
+  (member `micro_speech/models/model.tflite`, Apache-2.0). sha256
+  `454779dcfea05290759256178162fa86eb17642e7c9cac0de8ea78e1693cee00`. Note
+  the model in the tflite-micro repository is the later int8 variant, a
+  different model; this uint8 one was only ever distributed in the bundle.
+- `models/micro_speech_nosm.mlir`: the canonical intermediate produced by
+  stage 1 ("nosm" = no softmax; see Phase 1). The cut is at `add_1_dequant`,
+  the dequantised f32 input of the model's softmax.
+- `models/simple_mul.mlir`: copied from the pinned IREE checkout
+  (`runtime/src/iree/runtime/demo/simple_mul.mlir`, Apache-2.0).
+- `models/yes_audio.bin`: the 16-bit mono 16 kHz PCM payload of
+  [`yes_1000ms.wav`](https://github.com/tensorflow/tflite-micro/blob/main/tensorflow/lite/micro/examples/micro_speech/testdata/yes_1000ms.wav)
+  from tflite-micro (Apache-2.0), byte for byte.
+- `models/yes_features.bin`: the audio front end's expected output for
+  `yes_audio.bin`; the `kws-frontend` golden tests prove the Rust port
+  reproduces it byte-exactly.
 
 ### Phase 2: deploy (your inner loop)
 
@@ -140,7 +167,7 @@ The crate's `.cargo/config.toml` sets the target and a probe-rs runner, so this
 one command:
 
 1. builds the firmware for `thumbv7em-none-eabihf` (linking the safe crate, the
-   prebuilt IREE runtime, `model.o`, and the embedded `model.vmfb`),
+   prebuilt IREE runtime, `micro_speech.o`, and the embedded `micro_speech.vmfb`),
 2. flashes it to the nRF52833 over USB (`probe-rs run --chip nRF52833_xxAA`),
 3. attaches and streams `defmt` logs back to your terminal.
 

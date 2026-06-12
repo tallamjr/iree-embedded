@@ -141,6 +141,15 @@ reference, bundled inside each example.
 Stack: `embassy-executor`, `embassy-nrf` (the nRF device HAL), `cortex-m-rt`,
 `defmt` over RTT, `probe-rs run` (micro:bit) or `bossac` over USB (Nano).
 
+## Bring your own model
+
+ONNX is the front door: anything that exports to ONNX can take the same path
+the examples use (`tf2onnx` for TFLite, `torch.onnx.export` for PyTorch, or a
+native ONNX model) through `iree-import-onnx` and `iree-compile` to a pair of
+linkable artefacts. Each example ships a `scripts/compile-model.sh` showing
+the exact pinned invocations end to end, from the original `.tflite` to the
+committed `.o`/`.vmfb`.
+
 ## Workspace
 
 | Crate                            | Purpose                                                                                                                  |

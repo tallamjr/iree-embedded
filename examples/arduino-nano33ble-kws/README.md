@@ -121,11 +121,55 @@ erase it and you would lose the no-probe USB workflow.
 Nothing here is permanent. The bootloader is never touched, so an ordinary
 Arduino IDE upload overwrites this firmware and returns the board to stock.
 
-## Model artefacts
+## Package the model (occasional, host)
 
-The artefacts in `models/` (`micro_speech.vmfb`, `micro_speech.o`,
-`micro_speech.h`) are **copied from
-[`../microbit-v2-kws`](../microbit-v2-kws/)**: both boards are Cortex-M4F, so the
-statically linked kernels are identical and need no recompilation. How those
-artefacts are regenerated from the `.tflite` model is documented in that
-example's README (phase 1).
+Everything is scripted; regenerate the committed artefacts with:
+
+```sh
+scripts/compile-model.sh                # MLIR -> .o/.h/.vmfb (stage 2)
+scripts/compile-model.sh --from-tflite  # also tflite -> MLIR first (stage 1)
+```
+
+The pipeline behind it (`models/` carries every input):
+
+```
+micro_speech.tflite      original quantised model (see provenance below)
+  -> tf2onnx 1.17.0      TFLite -> ONNX (opset 13), graph truncated at the
+                         pre-softmax tensor: the firmware argmaxes raw
+                         logits, so softmax is dead weight on an M4
+  -> iree-import-onnx    ONNX -> MLIR (micro_speech_nosm.mlir, committed)
+  -> iree-compile        -> micro_speech.o/.h (static kernels) + .vmfb (VM
+                         program), with the flags in compile-model.sh
+```
+
+Stage 2 needs only the pinned compiler
+(`pip install "iree-base-compiler==3.11.0"`, see `scripts/iree-version.env`);
+stage 1 additionally needs the conversion toolchain described in
+`scripts/requirements-model.txt` (Python 3.11 via uv; TensorFlow and tf2onnx).
+A stage-1 rerun differs cosmetically from the committed MLIR (tf2onnx's
+generated names are not run-stable) while compiling identically. CI runs
+stage 2 on every push and rebuilds this firmware against the fresh artefacts.
+
+Both boards are Cortex-M4F, so the statically linked kernels are identical to
+the [micro:bit v2 example](../microbit-v2-kws/README.md)'s; the committed
+`models/micro_speech.{vmfb,o,h}` here are the same artefacts and need no
+separate recompilation.
+
+### Model and test-vector provenance
+
+- `models/micro_speech.tflite`: the original uint8 micro_speech keyword
+  spotting model, from the TensorFlow micro_speech example bundle
+  [`micro_speech_2020_04_13.zip`](https://storage.googleapis.com/download.tensorflow.org/models/tflite/micro/micro_speech_2020_04_13.zip)
+  (member `micro_speech/models/model.tflite`, Apache-2.0). sha256
+  `454779dcfea05290759256178162fa86eb17642e7c9cac0de8ea78e1693cee00`. Note
+  the model in the tflite-micro repository is the later int8 variant, a
+  different model; this uint8 one was only ever distributed in the bundle.
+- `models/micro_speech_nosm.mlir`: the canonical intermediate produced by
+  stage 1 ("nosm" = no softmax; see above). The cut is at `add_1_dequant`,
+  the dequantised f32 input of the model's softmax.
+- `models/yes_audio.bin`: the 16-bit mono 16 kHz PCM payload of
+  [`yes_1000ms.wav`](https://github.com/tensorflow/tflite-micro/blob/main/tensorflow/lite/micro/examples/micro_speech/testdata/yes_1000ms.wav)
+  from tflite-micro (Apache-2.0), byte for byte.
+- `models/yes_features.bin`: the audio front end's expected output for
+  `yes_audio.bin`; the `kws-frontend` golden tests prove the Rust port
+  reproduces it byte-exactly.
