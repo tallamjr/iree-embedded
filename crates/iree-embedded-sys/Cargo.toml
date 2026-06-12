@@ -14,6 +14,12 @@ categories = ["external-ffi-bindings", "embedded", "no-std"]
 # allows only one version of it in a dependency graph.
 links = "iree"
 
+# Docs are built for the deployment target so the committed MCU bindings match
+# the documented ABI (build.rs short-circuits under DOCS_RS).
+[package.metadata.docs.rs]
+default-target = "thumbv7em-none-eabihf"
+targets = []
+
 [build-dependencies]
 bindgen = { version = "0.72", features = ["experimental"] }
 cc = "1"

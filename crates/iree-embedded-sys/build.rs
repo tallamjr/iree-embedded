@@ -5,6 +5,9 @@ use std::path::{Path, PathBuf};
 // because the published crate does not carry repo-root files: a crates.io
 // consumer's build.rs only sees what lives under this crate directory.
 const IREE_SHA: &str = "e4a3b0405d7d23554da26403658d0e8c3c5ecf25";
+// The GitHub release hosting the runtime artefacts the checksums below pin.
+// It tracks the runtime, not the crate version: a crate release that leaves
+// the runtime untouched (e.g. 0.1.1) keeps downloading from the older tag.
 const RELEASE_TAG: &str = "v0.1.0";
 const RELEASE_BASE: &str = "https://github.com/tallamjr/iree-embedded/releases/download";
 
@@ -21,6 +24,22 @@ fn main() {
     let variant = if is_mcu { "mcu" } else { "host" };
 
     let out = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+
+    // docs.rs sets DOCS_RS=1 and builds in a network-isolated sandbox with
+    // neither arm-none-eabi-gcc nor the prebuilt runtime reachable. rustdoc
+    // never links native code, so skip runtime resolution, the link
+    // directives, and the wrapper compile entirely: the committed MCU
+    // bindings are everything rustdoc needs. Always the MCU variant, as the
+    // host one is deliberately not committed and docs target the deployment
+    // ABI (see [package.metadata.docs.rs] in Cargo.toml).
+    if std::env::var_os("DOCS_RS").is_some() {
+        std::fs::copy(
+            manifest.join("generated/bindings_mcu.rs"),
+            out.join("bindings.rs"),
+        )
+        .expect("copy committed MCU bindings for the docs.rs build");
+        return;
+    }
 
     // Locate the out-of-band IREE runtime (built by scripts/build-runtime-*.sh,
     // or an unpacked CI artefact). build.rs only LINKS this; it never builds it.

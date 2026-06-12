@@ -11,6 +11,12 @@ readme = "README.md"
 keywords = ["iree", "embedded", "no_std", "inference", "cortex-m"]
 categories = ["embedded", "no-std", "science"]
 
+# Docs are built for the deployment target so the committed MCU bindings in
+# the sys crate match the documented ABI.
+[package.metadata.docs.rs]
+default-target = "thumbv7em-none-eabihf"
+targets = []
+
 [dependencies]
 # version is required alongside path so the dependency resolves once published.
 iree-embedded-sys = { path = "../iree-embedded-sys", version = "0.1.0" }

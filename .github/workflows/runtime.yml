@@ -28,6 +28,17 @@ jobs:
         with:
           command: check bans licenses sources advisories
 
+  # docs.rs simulation: the packaged crates must doc-build offline under
+  # DOCS_RS=1 (no runtime needed; build.rs short-circuits to the committed
+  # MCU bindings).
+  docsrs-sim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup target add thumbv7em-none-eabihf
+      - run: ./scripts/test-docsrs-sim.sh
+
   # Host runtime build + the crate test suite against it.
   host:
     strategy:
