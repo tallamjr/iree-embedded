@@ -145,6 +145,24 @@ jobs:
         run: |
           cd examples/arduino-nano33ble-kws
           cargo test -p kws-frontend --target x86_64-unknown-linux-gnu
+      # The READMEs promise the scripted model pipeline works on every push:
+      # regenerate the artefacts from the committed MLIR with the pinned
+      # compiler, then prove the firmware still builds against them.
+      - name: Install pinned iree-compile
+        run: |
+          source scripts/iree-version.env
+          python3 -m venv .venv
+          .venv/bin/pip install "iree-base-compiler==$IREE_PIP_VERSION"
+      - name: Regenerate model artefacts from source (stage 2)
+        run: |
+          examples/microbit-v2-kws/scripts/compile-model.sh
+          examples/arduino-nano33ble-kws/scripts/compile-model.sh
+      - name: Rebuild both firmwares against the fresh artefacts
+        run: |
+          export IREE_RUNTIME_DIR="$PWD/runtime-unpacked/build"
+          export IREE_SRC_DIR="$PWD/runtime-unpacked/src"
+          (cd examples/microbit-v2-kws && cargo build --release)
+          (cd examples/arduino-nano33ble-kws && cargo build --release)
 
   # Tagged builds publish the artefacts as a GitHub release.
   release:
