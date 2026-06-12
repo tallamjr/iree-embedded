@@ -152,8 +152,8 @@ stage 2 on every push and rebuilds this firmware against the fresh artefacts.
 
 Both boards are Cortex-M4F, so the statically linked kernels are identical to
 the [micro:bit v2 example](../microbit-v2-kws/README.md)'s; the committed
-`models/micro_speech.{vmfb,o,h}` here are the same artefacts and need no
-separate recompilation.
+`models/micro_speech.{vmfb,o,h}` here are equivalent artefacts (identical
+machine code), regenerated independently by the same script.
 
 ### Model and test-vector provenance
 

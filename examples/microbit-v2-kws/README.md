@@ -88,8 +88,10 @@ x16 digital gain before the front end.
 
 - Rust target: `rustup target add thumbv7em-none-eabihf`
 - [`probe-rs`](https://probe.rs/) installed
-- `iree-compile` on `PATH` (stage 2 of Phase 1): the pinned pip release, see
-  `scripts/iree-version.env`
+- The pinned `iree-compile` in `.venv` (stage 2 of Phase 1): `compile-model.sh`
+  runs `$ROOT/.venv/bin/iree-compile`, so install it with
+  `python3 -m venv .venv && .venv/bin/pip install "iree-base-compiler==3.11.0"`
+  (see `scripts/iree-version.env`), or point `IREE_COMPILE` at an existing binary
 - The IREE runtime cross-built for the board: `scripts/build-runtime-mcu.sh`
 - The model is committed at `models/micro_speech.tflite` (provenance below), so
   nothing needs fetching

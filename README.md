@@ -183,7 +183,7 @@ Two options for the IREE runtime the crates link against:
 
 Models are compiled with `iree-compile` (the pinned pip release, see
 `scripts/iree-version.env`) into a static-library `.o` plus a `.vmfb`, which
-the firmware links and embeds; the exact flags are in the example README.
+the firmware links and embeds; the exact flags live in each example's `scripts/compile-model.sh`.
 
 The word "toolchain" appears in three distinct senses here, so to be precise
 about what is installed versus configured:
