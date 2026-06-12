@@ -1,0 +1,12 @@
+# Stage-1 model conversion toolchain (tflite -> ONNX). Pinned to the versions
+# recorded in the committed MLIR's metadata (producer tf2onnx 1.17.0). Used by
+# examples/*/scripts/compile-model.sh --from-tflite; never needed in CI.
+#
+# tensorflow (not tensorflow-cpu): tensorflow-cpu publishes no macOS arm64
+# wheels, so on Apple Silicon the cpu variant is unresolvable. The full
+# tensorflow package ships arm64 wheels at the same 2.15.1 version that
+# tf2onnx 1.17.0 supports, so only the package name changed; the pin did not.
+tf2onnx==1.17.0
+tensorflow==2.15.1
+onnx==1.16.2
+numpy<2
