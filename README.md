@@ -118,22 +118,28 @@ IREE's sweet spot is exactly the constrained target this crate serves.
 
 ## Status
 
-The end-to-end demo works on real hardware: live keyword spotting
-("yes"/"no") from the BBC micro:bit v2's onboard analog microphone, with the
-full pipeline on the nRF52833 (Cortex-M4F, 128 KB RAM): `embassy-nrf` SAADC
-capture, a pure-Rust audio front end, and the micro_speech model under IREE,
-re-classified four times per second. See
-[`examples/microbit-v2-kws`](examples/microbit-v2-kws/README.md) for the
-demo, the model-compilation workflow, and a documented RAM map.
+The end-to-end demo works on real hardware, on two boards: live keyword
+spotting ("yes"/"no") re-classified four times per second, with the full
+pipeline (mic capture, a pure-Rust audio front end, and the micro_speech
+model under IREE) on the device.
 
-The example is **pure Rust end to end**: the only non-Rust artefacts are the
-IREE runtime (vendored C, bound by `iree-embedded`) and the model itself
-(`iree-compile` output, i.e. machine code). The audio front end is a
-byte-exact Rust port of the TFLite-Micro reference, bundled inside the
-example.
+- **BBC micro:bit v2** (nRF52833, 128 KB RAM): analog mic over `embassy-nrf`
+  SAADC, flashed with probe-rs, logs over defmt/RTT. See
+  [`examples/microbit-v2-kws`](examples/microbit-v2-kws/README.md) for the
+  demo, the model-compilation workflow, and a documented RAM map.
+- **Arduino Nano 33 BLE Sense** (nRF52840, 256 KB RAM): digital PDM mic,
+  flashed over plain USB through the stock Arduino bootloader (no debug
+  probe needed), detections shown on the onboard RGB LED. See
+  [`examples/arduino-nano33ble-kws`](examples/arduino-nano33ble-kws/README.md).
+
+Both examples are **pure Rust end to end** with `#![forbid(unsafe_code)]`
+firmware: the only non-Rust artefacts are the IREE runtime (vendored C, bound
+by `iree-embedded`) and the model itself (`iree-compile` output, i.e. machine
+code). The audio front end is a byte-exact Rust port of the TFLite-Micro
+reference, bundled inside each example.
 
 Stack: `embassy-executor`, `embassy-nrf` (the nRF device HAL), `cortex-m-rt`,
-`defmt` over RTT, `probe-rs run`.
+`defmt` over RTT, `probe-rs run` (micro:bit) or `bossac` over USB (Nano).
 
 ## Workspace
 
@@ -142,6 +148,7 @@ Stack: `embassy-executor`, `embassy-nrf` (the nRF device HAL), `cortex-m-rt`,
 | `crates/iree-embedded-sys` | Raw `bindgen` FFI to the prebuilt IREE runtime (the only FFI crate).                                                     |
 | `crates/iree-embedded`     | Safe `no_std` public API.                                                                                                |
 | `examples/microbit-v2-kws` | Live keyword-spotting demo; a self-contained workspace that bundles its own pure-Rust audio front end (`kws-frontend/`). |
+| `examples/arduino-nano33ble-kws` | The same demo on the Nano 33 BLE Sense (PDM mic, USB flashing, LED feedback); equally self-contained. |
 
 ## Building
 
