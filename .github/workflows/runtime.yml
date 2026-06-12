@@ -122,6 +122,18 @@ jobs:
         run: |
           cd examples/microbit-v2-kws
           cargo test -p kws-frontend --target x86_64-unknown-linux-gnu
+      - name: Build Nano 33 BLE Sense firmware against the artefact
+        run: |
+          export IREE_RUNTIME_DIR="$PWD/runtime-unpacked/build"
+          export IREE_SRC_DIR="$PWD/runtime-unpacked/src"
+          cd examples/arduino-nano33ble-kws
+          cargo build --release
+      - name: Nano front-end golden-vector tests (host)
+        # The bundled kws-frontend crate is byte-exact against the C reference;
+        # the example's .cargo/config forces thumb, so name the host target.
+        run: |
+          cd examples/arduino-nano33ble-kws
+          cargo test -p kws-frontend --target x86_64-unknown-linux-gnu
 
   # Tagged builds publish the artefacts as a GitHub release.
   release:
