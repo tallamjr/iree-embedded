@@ -2,7 +2,7 @@
 # front end. Only `iree-embedded` is reached from outside, that being the
 # reusable library this example demonstrates.
 [workspace]
-members = ["kws-frontend"]
+members = ["kws-frontend", "cycle-stats"]
 
 [package]
 name = "arduino-nano33ble-kws"
