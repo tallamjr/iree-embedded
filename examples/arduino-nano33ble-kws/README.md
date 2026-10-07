@@ -101,6 +101,38 @@ nRF52840's 256 KB. The model's weights and compiled kernels stay in flash and
 cost no RAM; the RAM budget is the working state of an inference (the IREE
 arena, the audio double buffer, the front-end state, and the stack).
 
+## Size and timing
+
+`scripts/size-report.sh` builds the release firmware and prints a markdown
+table for each binary: `.text`, `.rodata`, `.data`, `.bss`, the flash total
+and the static RAM, with the share of the nRF52840 (1 MB flash, 256 KB RAM).
+Pass an ELF path to report one file without a build. The tool
+`arm-none-eabi-size` and `jq` must be on the PATH.
+
+```sh
+scripts/size-report.sh
+```
+
+`src/bin/bench.rs` is a second firmware that times the model. It computes the
+features once from the embedded "yes" clip, runs 10 warm-up invokes, then
+times 1000 invokes of the model alone with the DWT cycle counter. It prints
+min, median, p99 and max, in cycles and in microseconds at 64 MHz, with
+`defmt`. The statistics come from the `cycle-stats` crate, which has host
+tests: `cargo test -p cycle-stats --target aarch64-apple-darwin`.
+
+To run the hardware test, put the board in bootloader mode (double-tap reset)
+and run:
+
+```sh
+cargo run --release --bin bench
+```
+
+The `flash.sh` runner flashes the bench binary. The solid orange LED means the
+run is done. The results go out over RTT, so you need a probe to read them
+(see "Logs" below). A fast orange blink means an error.
+
+The timing numbers are not yet measured. No board has run this binary.
+
 ## Logs (optional)
 
 `defmt` over RTT is compiled into the firmware but **dormant**: nothing reads it
