@@ -34,6 +34,7 @@ dependencies = [
  "bytemuck",
  "cortex-m",
  "cortex-m-rt",
+ "cycle-stats",
  "defmt 0.3.100",
  "defmt-rtt",
  "embassy-executor",

@@ -7,33 +7,19 @@
 
 use core::sync::atomic::Ordering;
 
+use arduino_nano33ble_kws::{CORE_CLOCK_HZ, VMFB, classify, fatal_blink, self_test_clip};
 use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_nrf::gpio::{Level, Output, OutputDrive};
 use embassy_nrf::pdm::{self, Config as PdmConfig, Frequency, Pdm, SamplerState};
 use embassy_nrf::{bind_interrupts, peripherals};
-use iree_embedded::{
-    Arena, Context, Device, Instance, Result, Tensor, include_vmfb, link_kernels, singleton,
-};
+use iree_embedded::{Arena, Context, Device, Instance, Result, link_kernels, singleton};
 use kws_frontend::{FEATURE_BYTES, Frontend};
 use panic_probe as _;
 
 bind_interrupts!(struct Irqs {
     PDM => pdm::InterruptHandler<peripherals::PDM>;
 });
-
-// The keyword-spotting model (TFLite-Micro micro_speech, softmax stripped).
-// Same artefact as the micro:bit example: both boards are Cortex-M4F, so the
-// statically linked kernels (models/micro_speech.o) are identical.
-static VMFB: &[u8] = include_vmfb!("../models/micro_speech.vmfb");
-
-// Real 1-second "yes" recording (16 kHz mono int16) used as a boot-time
-// self-test before the live microphone loop starts.
-#[repr(C, align(4))]
-struct Align4<T: ?Sized>(T);
-static AUDIO: &Align4<[u8]> = &Align4(*include_bytes!("../models/yes_audio.bin"));
-
-const LABELS: [&str; 4] = ["silence", "unknown", "yes", "no"];
 
 // A detection needs the winning yes/no logit to beat the runner-up by this
 // much; one window is classified every 250 ms, so weak wins are just noise.
@@ -61,17 +47,7 @@ iree_embedded::libc_stubs!();
 
 /// Milliseconds elapsed since `start` (DWT cycle counter, 64 MHz core clock).
 fn ms_since(start: u32) -> u32 {
-    cortex_m::peripheral::DWT::cycle_count().wrapping_sub(start) / 64_000
-}
-
-/// Fatal-error signature without a probe: rapid orange blink, forever.
-fn fatal_blink(status: &mut Output) -> ! {
-    loop {
-        status.set_high();
-        cortex_m::asm::delay(6_400_000); // ~100 ms at 64 MHz
-        status.set_low();
-        cortex_m::asm::delay(6_400_000);
-    }
+    cortex_m::peripheral::DWT::cycle_count().wrapping_sub(start) / (CORE_CLOCK_HZ / 1000)
 }
 
 #[embassy_executor::main]
@@ -146,8 +122,7 @@ async fn run(
 
     // Boot self-test on the embedded "yes" clip: proves the whole pipeline
     // (front end + model) before live audio. Pass = two slow orange blinks.
-    // The Align4 wrapper on AUDIO satisfies cast_slice's alignment check.
-    let clip: &[i16] = bytemuck::cast_slice(&AUDIO.0);
+    let clip = self_test_clip();
     let mut features = [0u8; FEATURE_BYTES];
     fe.features_oneshot(clip, &mut features);
     let (label, logits) = classify(&ctx, &device, infer, &features, arena)?;
@@ -252,28 +227,6 @@ async fn run(
         fatal_blink(status);
     }
     result
-}
-
-/// Run the model over a 49x40 feature window.
-fn classify(
-    ctx: &Context,
-    device: &Device,
-    infer: iree_embedded::Function,
-    features: &[u8; FEATURE_BYTES],
-    arena: &Arena,
-) -> Result<(&'static str, [f32; 4])> {
-    let input = Tensor::from_u8(device, &[1, 49, 40, 1], features)?;
-    let outputs = ctx.invoke(infer, &[&input], arena)?;
-    let mut logits = [0.0f32; 4];
-    outputs[0].read_into_f32(device, &mut logits)?;
-
-    let best = logits
-        .iter()
-        .enumerate()
-        .max_by(|(_, a), (_, b)| a.total_cmp(b))
-        .map(|(i, _)| i)
-        .unwrap();
-    Ok((LABELS[best], logits))
 }
 
 /// DC mean of a chunk and its post-gain mean absolute level (loudness).
