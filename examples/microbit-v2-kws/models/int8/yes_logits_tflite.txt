@@ -1,0 +1,8 @@
+# TFLite reference interpreter on yes_features_int8.bin (full model).
+# Command: scripts/run_tflite_int8.py models/int8/micro_speech_quantized.tflite models/int8/yes_features_int8.bin
+# Labels: silence, unknown, yes, no.
+# Pre-softmax output tensor add_1: scale 0.09173192, zero point 14.
+pre_softmax_int8 -50 -4 121 -4
+pre_softmax_real -5.8708 -1.6512 9.8153 -1.6512
+softmax_int8 -128 -128 127 -128
+label yes
