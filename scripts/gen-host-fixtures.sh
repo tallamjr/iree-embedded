@@ -13,10 +13,11 @@ FIX="$ROOT/crates/iree-embedded/tests/fixtures"
 COMPILE="${IREE_COMPILE:-$ROOT/.venv/bin/iree-compile}"
 
 for arch in x86_64 aarch64; do
-  for model in simple_mul micro_speech; do
+  for model in simple_mul micro_speech micro_speech_int8; do
     case "$model" in
       simple_mul) mlir="$SRC/runtime/src/iree/runtime/demo/simple_mul.mlir" ;;
       micro_speech) mlir="$FIX/micro_speech_nosm.mlir" ;;
+      micro_speech_int8) mlir="$ROOT/examples/microbit-v2-kws/models/int8/micro_speech_int8_nosm.mlir" ;;
     esac
     "$COMPILE" \
       --iree-hal-target-device=local \
