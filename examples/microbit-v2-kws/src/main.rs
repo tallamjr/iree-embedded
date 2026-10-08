@@ -7,6 +7,8 @@
 
 use core::sync::atomic::Ordering;
 
+use microbit_v2_kws::{VMFB, classify, self_test_clip};
+
 use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_nrf::gpio::{Level, Output, OutputDrive};
@@ -15,29 +17,13 @@ use embassy_nrf::saadc::{
 };
 use embassy_nrf::timer::Frequency;
 use embassy_nrf::{bind_interrupts, saadc};
-use iree_embedded::{
-    Arena, Context, Device, Instance, Result, Tensor, include_vmfb, link_kernels, singleton,
-};
+use iree_embedded::{Arena, Context, Device, Instance, Result, link_kernels, singleton};
 use kws_frontend::{FEATURE_BYTES, Frontend};
 use panic_probe as _;
 
 bind_interrupts!(struct Irqs {
     SAADC => saadc::InterruptHandler;
 });
-
-// The keyword-spotting model (TFLite-Micro micro_speech, softmax stripped).
-// The VM program is embedded here; its kernels are real Cortex-M machine code
-// statically linked into this firmware (models/micro_speech.o) and executed in
-// place from flash by the static-library loader.
-static VMFB: &[u8] = include_vmfb!("../models/micro_speech.vmfb");
-
-// Real 1-second "yes" recording (16 kHz mono int16) used as a boot-time
-// self-test before the live microphone loop starts.
-#[repr(C, align(4))]
-struct Align4<T: ?Sized>(T);
-static AUDIO: &Align4<[u8]> = &Align4(*include_bytes!("../models/yes_audio.bin"));
-
-const LABELS: [&str; 4] = ["silence", "unknown", "yes", "no"];
 
 // A detection needs the winning yes/no logit to beat the runner-up by this
 // much; one window is classified every 250 ms, so weak wins are just noise.
@@ -141,8 +127,7 @@ async fn run(
     // Boot self-test on the embedded "yes" clip: proves the whole pipeline
     // (front end + model) before live audio, which depends on mic gain and
     // room noise, runs.
-    // The Align4 wrapper on AUDIO satisfies cast_slice's alignment check.
-    let clip: &[i16] = bytemuck::cast_slice(&AUDIO.0);
+    let clip = self_test_clip();
     let mut features = [0u8; FEATURE_BYTES];
     fe.features_oneshot(clip, &mut features);
     let (label, logits) = classify(&ctx, &device, infer, &features, arena)?;
@@ -210,28 +195,6 @@ async fn run(
     .await;
 
     result
-}
-
-/// Run the model over a 49x40 feature window.
-fn classify(
-    ctx: &Context,
-    device: &Device,
-    infer: iree_embedded::Function,
-    features: &[u8; FEATURE_BYTES],
-    arena: &Arena,
-) -> Result<(&'static str, [f32; 4])> {
-    let input = Tensor::from_u8(device, &[1, 49, 40, 1], features)?;
-    let outputs = ctx.invoke(infer, &[&input], arena)?;
-    let mut logits = [0.0f32; 4];
-    outputs[0].read_into_f32(device, &mut logits)?;
-
-    let best = logits
-        .iter()
-        .enumerate()
-        .max_by(|(_, a), (_, b)| a.total_cmp(b))
-        .map(|(i, _)| i)
-        .unwrap();
-    Ok((LABELS[best], logits))
 }
 
 /// DC mean of a chunk and its post-gain mean absolute level (loudness).
