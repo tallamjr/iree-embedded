@@ -6,6 +6,9 @@
 use iree_embedded::{Arena, Context, Device, Function, Result, Tensor, include_vmfb};
 use kws_frontend::FEATURE_BYTES;
 
+#[cfg(feature = "int8")]
+pub mod int8;
+
 // The keyword-spotting model (TFLite-Micro micro_speech, softmax stripped).
 // Its kernels are Cortex-M machine code linked from models/micro_speech.o and
 // run in place from flash.

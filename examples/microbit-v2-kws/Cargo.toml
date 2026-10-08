@@ -12,6 +12,16 @@ publish = false
 default-run = "microbit-v2-kws"
 description = "micro:bit v2 firmware running IREE inference (simple_mul smoke, then KWS)."
 
+# The int8 feature adds the upstream int8 model and the `timing_int8` firmware.
+# It does not change the default (uint8) firmware.
+[features]
+int8 = []
+
+[[bin]]
+name = "timing_int8"
+path = "src/bin/timing_int8.rs"
+required-features = ["int8"]
+
 [dependencies]
 iree-embedded = { path = "../../crates/iree-embedded" }
 kws-frontend = { path = "kws-frontend" }

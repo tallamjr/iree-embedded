@@ -31,12 +31,14 @@ fn link_models(out: &Path) {
         .arg(&lib)
         .arg("models/simple_mul.o")
         .arg("models/micro_speech.o")
+        .arg("models/micro_speech_int8.o")
         .status()
         .expect("arm-none-eabi-ar not found");
     assert!(status.success(), "archiving model objects failed");
     println!("cargo:rustc-link-lib=static=kws_models");
     println!("cargo:rerun-if-changed=models/simple_mul.o");
     println!("cargo:rerun-if-changed=models/micro_speech.o");
+    println!("cargo:rerun-if-changed=models/micro_speech_int8.o");
 }
 
 /// IREE references newlib C functions (memcpy, malloc and friends); link the
