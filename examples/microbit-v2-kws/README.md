@@ -189,11 +189,12 @@ scripts/size-report.sh
 ```
 
 `src/bin/timing.rs` is a second firmware that times the model on the device
-under test (DUT). It computes the features once from the embedded "yes" clip,
-runs 10 warm-up invokes, then times 1000 invokes of the model alone with the
-DWT cycle counter. It prints min, median, p99 and max, in cycles and in
-microseconds at 64 MHz, with `defmt`. The statistics come from the
-`cycle-stats` crate, which has host tests:
+under test (DUT). It computes the features once from the embedded "yes" clip.
+It runs 10 warm-up invokes, then times 1000 invokes of the model alone with
+the DWT cycle counter. It does this twice: once with the instruction cache
+off (the reset state) and once with it on. It prints min, median, p99 and
+max, in cycles and in microseconds at 64 MHz, with `defmt`. The statistics
+come from the `cycle-stats` crate, which has host tests:
 `cargo test -p cycle-stats --target aarch64-apple-darwin`.
 
 To run the hardware test, connect the board and run:
@@ -216,7 +217,34 @@ Size report of the release build (static RAM includes the 56 KB arena):
 
 The timing firmware leaves about 49 KB of RAM for the stack.
 
-The timing numbers are not yet measured. No board has run this binary.
+### Measured on a micro:bit v2
+
+First hardware run, 2026-10-08, nRF52833 at 64 MHz, embedded "yes" clip,
+1000 timed invokes of the model alone:
+
+| Instruction cache | Cycles per invoke | Time per invoke |
+|---|---:|---:|
+| off | 5,822,985 (min = median = p99 = max) | 90.98 ms |
+| on | 4,824,981 (min = median = p99; max +6) | 75.39 ms |
+
+The model labelled the clip "yes" in both runs.
+
+With the cache off, the cycle count depends on where the code sits in flash.
+Four builds of the same model gave 5.82 to 6.44 million cycles. With the cache
+on, two builds gave 4,824,981 and 4,825,526 cycles. Compare builds only with
+the cache on.
+
+### How the counter was checked
+
+- A host timer measured a full earlier run: 1,010 invokes took 102.3 s,
+  including set-up. The counter predicts 101.6 s, so it agrees within 0.7%.
+- `src/bin/validate.rs` times known delays and three model inputs (the "yes"
+  clip, all zeros and random bytes). `asm::delay(N)` counts 1.5 N cycles, as
+  expected for that routine. Each input gives its own stable count, so the
+  counter responds to the work done.
+- The firmware has no live audio in this test. The input is the recorded clip
+  inside the firmware, so nobody needs to speak.
+
 
 ## Smoke check
 
