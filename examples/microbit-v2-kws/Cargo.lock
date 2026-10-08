@@ -709,6 +709,7 @@ dependencies = [
  "embassy-nrf",
  "iree-embedded",
  "kws-frontend",
+ "nrf-pac",
  "panic-probe",
 ]
 
