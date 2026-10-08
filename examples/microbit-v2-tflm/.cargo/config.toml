@@ -1,0 +1,13 @@
+[build]
+target = "thumbv7em-none-eabihf"
+
+[env]
+# defmt filters at compile time; without this only error! survives.
+DEFMT_LOG = "info"
+
+[target.thumbv7em-none-eabihf]
+runner = "probe-rs run --chip nRF52833_xxAA"
+rustflags = [
+  "-C", "link-arg=-Tlink.x",   # cortex-m-rt linker script
+  "-C", "link-arg=-Tdefmt.x",  # defmt RTT
+]

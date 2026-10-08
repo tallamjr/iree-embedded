@@ -1,0 +1,6 @@
+[package]
+name = "cycle-stats"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Summary statistics for CPU cycle counts. No allocation, no dependencies."
