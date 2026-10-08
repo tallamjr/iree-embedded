@@ -113,7 +113,8 @@ Pass an ELF path to report one file without a build. The tool
 scripts/size-report.sh
 ```
 
-`src/bin/bench.rs` is a second firmware that times the model. It computes the
+`src/bin/timing.rs` is a second firmware that times the model on the device
+under test (DUT). It computes the
 features once from the embedded "yes" clip, runs 10 warm-up invokes, then
 times 1000 invokes of the model alone with the DWT cycle counter. It prints
 min, median, p99 and max, in cycles and in microseconds at 64 MHz, with
@@ -124,10 +125,10 @@ To run the hardware test, put the board in bootloader mode (double-tap reset)
 and run:
 
 ```sh
-cargo run --release --bin bench
+cargo run --release --bin timing
 ```
 
-The `flash.sh` runner flashes the bench binary. The solid orange LED means the
+The `flash.sh` runner flashes the timing firmware. The solid orange LED means the
 run is done. The results go out over RTT, so you need a probe to read them
 (see "Logs" below). A fast orange blink means an error.
 

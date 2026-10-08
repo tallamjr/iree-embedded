@@ -1,5 +1,5 @@
 //! Code shared by the keyword-spotting firmware (`main.rs`) and the timing
-//! firmware (`bin/bench.rs`): model data, the model call and the fatal blink.
+//! firmware (`bin/timing.rs`): model data, the model call and the fatal blink.
 #![no_std]
 #![forbid(unsafe_code)]
 
