@@ -250,6 +250,44 @@ the cache on.
 - The firmware has no live audio in this test. The input is the recorded clip
   inside the firmware, so nobody needs to speak.
 
+## Int8 model
+
+This section adds the upstream int8 `micro_speech_quantized.tflite` from
+tflite-micro. It is the model for a size and speed comparison with
+TFLite-Micro (issue #11). Both runtimes run the same weights, the same cut
+before the softmax and the same fixed feature file.
+
+No board has run this firmware yet. The host checks below are the only
+results.
+
+- Files: `models/int8/` (see its `README.md` for the source, the commit and
+  the SHA-256 values) and the compiled `models/micro_speech_int8.{o,h,vmfb}`.
+- Input: int8, shape `[1,1960]`, from the fixed file
+  `models/int8/yes_features_int8.bin`. The upstream front end made it. The
+  `kws-frontend` crate does not make int8 values.
+- Rebuild the compiled files: `scripts/compile-model.sh int8` (add
+  `--from-tflite` to import the model again). The default `uint8` is the
+  original flow and does not touch the int8 files.
+- Build the firmware: `cargo build --release --features int8 --bin
+  timing_int8`. The feature adds a binary. The default binaries do not change.
+- Size: `scripts/size-report.sh $CARGO_TARGET_DIR/thumbv7em-none-eabihf/release/timing_int8`.
+- Run: the firmware times the invoke in the same way as `timing`. After each
+  pass it prints the label and the four logits. The reference logits are
+  -5.8708, -1.6512, 9.8153 and -1.6512 (label yes).
+
+Sizes of `timing_int8` (release build, `scripts/size-report.sh`): flash
+391,368 bytes, static RAM 65,912 bytes (including the 56 KB arena). The
+compiled files are 18,176 bytes (`.o`) and 23,689 bytes (`.vmfb`).
+
+Host checks:
+
+- `iree-run-module` on the committed feature file gives the same four logits as
+  the TFLite reference interpreter (0 quantisation steps apart).
+- `cargo test -p iree-embedded` runs the int8 model on the host through
+  `Tensor::from_i8`.
+- The `timing_int8` binary has no audio front end. Its RAM and flash figures
+  are not comparable with `timing`, which includes the front end.
+
 ## Smoke check
 
 To prove just the runtime before trusting the heavier model, point `main.rs` at
