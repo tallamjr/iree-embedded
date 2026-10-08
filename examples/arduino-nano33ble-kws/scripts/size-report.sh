@@ -28,10 +28,11 @@ report() {
     $1 == ".vector_table" || $1 == ".text" { text += $2 }
     $1 == ".rodata" { rodata = $2 }
     $1 == ".data" { data = $2 }
+    $1 == ".uninit" { uninit = $2 }
     $1 == ".bss" { bss = $2 }
     END {
       flash = text + rodata + data
-      ram = data + bss
+      ram = data + bss + uninit
       print "| Item | Bytes | Share of nRF52840 |"
       print "|---|---:|---:|"
       printf "| .text | %d | |\n", text
@@ -39,7 +40,8 @@ report() {
       printf "| .data | %d | |\n", data
       printf "| .bss | %d | |\n", bss
       printf "| Flash total (.text + .rodata + .data) | %d | %.1f%% of 1 MB |\n", flash, 100 * flash / flash_total
-      printf "| Static RAM (.data + .bss) | %d | %.1f%% of 256 KB |\n", ram, 100 * ram / ram_total
+      printf "| .uninit | %d | |\n", uninit
+      printf "| Static RAM (.data + .bss + .uninit) | %d | %.1f%% of 256 KB |\n", ram, 100 * ram / ram_total
     }'
   echo
 }
