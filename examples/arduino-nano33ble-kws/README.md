@@ -114,12 +114,17 @@ scripts/size-report.sh
 ```
 
 `src/bin/timing.rs` is a second firmware that times the model on the device
-under test (DUT). It computes the
-features once from the embedded "yes" clip, runs 10 warm-up invokes, then
-times 1000 invokes of the model alone with the DWT cycle counter. It prints
-min, median, p99 and max, in cycles and in microseconds at 64 MHz, with
-`defmt`. The statistics come from the `cycle-stats` crate, which has host
-tests: `cargo test -p cycle-stats --target aarch64-apple-darwin`.
+under test (DUT). It computes the features once from the embedded "yes"
+clip. It runs 10 warm-up invokes, then times 1000 invokes of the model alone
+with the DWT cycle counter. It does this twice: once with the instruction
+cache off (the reset state) and once with it on. It prints min, median, p99
+and max, in cycles and in microseconds at 64 MHz, with `defmt`. The
+statistics come from the `cycle-stats` crate, which has host tests:
+`cargo test -p cycle-stats --target aarch64-apple-darwin`.
+
+With the cache off, the cycle count changes with the code layout in flash.
+On the micro:bit v2 the same model took 5.8 to 6.4 million cycles in four
+builds. Compare cycle counts only with the cache on, or within one build.
 
 To run the hardware test, put the board in bootloader mode (double-tap reset)
 and run:
@@ -132,7 +137,8 @@ The `flash.sh` runner flashes the timing firmware. The solid orange LED means th
 run is done. The results go out over RTT, so you need a probe to read them
 (see "Logs" below). A fast orange blink means an error.
 
-The timing numbers are not yet measured. No board has run this binary.
+The timing numbers are not yet measured on this board. Only the micro:bit v2
+has run the timing firmware (see its README).
 
 ## Logs (optional)
 
