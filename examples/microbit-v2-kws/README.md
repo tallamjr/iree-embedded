@@ -236,15 +236,19 @@ the cache on.
 
 ### How the counter was checked
 
-- A host timer measured a full earlier run: 1,010 invokes took 102.3 s,
-  including set-up. The counter predicts 101.6 s, so it agrees within 0.7%.
+- A host timer measured a full run of an earlier build (6,439,009 cycles per
+  invoke, cache off). 1,010 invokes took 102.3 s, including set-up. The counter
+  predicts 101.6 s. The error is at most 0.7%, because the set-up time is
+  included.
 - `src/bin/validate.rs` times known delays and three model inputs (the "yes"
-  clip, all zeros and random bytes). `asm::delay(N)` counts 1.5 N cycles, as
-  expected for that routine. Each input gives its own stable count, so the
-  counter responds to the work done.
+  clip, all zeros and random bytes). Observed: `asm::delay(N)` counts about
+  1.5 N + 20 cycles.
+- With the cache off, the three inputs differ by only 0.2%. With the cache on,
+  the "yes" clip and all zeros differ by 0.2% (the random-byte run was not
+  captured). The counter responds to the input, but this check
+  is weak evidence on its own. The host timer is the stronger check.
 - The firmware has no live audio in this test. The input is the recorded clip
   inside the firmware, so nobody needs to speak.
-
 
 ## Smoke check
 
