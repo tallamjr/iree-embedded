@@ -2,18 +2,20 @@
 # front end. Only `iree-embedded` is reached from outside, that being the
 # reusable library this example demonstrates.
 [workspace]
-members = ["kws-frontend"]
+members = ["kws-frontend", "cycle-stats"]
 
 [package]
 name = "microbit-v2-kws"
 version = "0.1.0"
 edition = "2024"
 publish = false
+default-run = "microbit-v2-kws"
 description = "micro:bit v2 firmware running IREE inference (simple_mul smoke, then KWS)."
 
 [dependencies]
 iree-embedded = { path = "../../crates/iree-embedded" }
 kws-frontend = { path = "kws-frontend" }
+cycle-stats = { path = "cycle-stats" }
 # Safe reinterpretation of the embedded audio clip's bytes as i16 samples.
 bytemuck = { version = "1", default-features = false }
 # embassy-nrf is the nRF device HAL: it replaces raw nrf52833-pac register and
