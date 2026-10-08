@@ -1,7 +1,8 @@
 //! Timing firmware: cycles per model invoke on the Nano 33 BLE Sense.
 //!
-//! Runs 10 warm-up invokes, then 1000 timed invokes of the model only. The
-//! audio front end runs once, before the loop. Results go out over defmt RTT.
+//! Runs 10 warm-up invokes, then 1000 timed invokes of the model only, with
+//! the instruction cache off and then on. The audio front end runs once,
+//! before the loops. Results go out over defmt RTT.
 #![no_std]
 #![no_main]
 #![forbid(unsafe_code)]
@@ -75,37 +76,43 @@ fn run(arena: &Arena, fe: &mut Frontend, cycles: &mut [u32; TIMED_INVOKES]) -> R
     fe.features_oneshot(self_test_clip(), &mut features);
     let input = Tensor::from_u8(&device, &[1, 49, 40, 1], &features)?;
 
-    for _ in 0..WARMUP_INVOKES {
-        ctx.invoke(infer, &[&input], arena)?;
-    }
+    // The instruction cache is off at reset. Cycle counts with it off change
+    // by about 10% between builds, so both settings are reported.
+    for cache_on in [false, true] {
+        nrf_pac::NVMC.icachecnf().write(|w| w.set_cacheen(cache_on));
+        for _ in 0..WARMUP_INVOKES {
+            ctx.invoke(infer, &[&input], arena)?;
+        }
 
-    let mut logits = [0.0f32; 4];
-    for slot in cycles.iter_mut() {
-        let start = DWT::cycle_count();
-        let outputs = ctx.invoke(infer, &[&input], arena)?;
-        *slot = DWT::cycle_count().wrapping_sub(start);
-        outputs[0].read_into_f32(&device, &mut logits)?;
-    }
-    defmt::info!(
-        "last invoke classified: {} (expected 'yes')",
-        best_label(&logits)
-    );
+        let mut logits = [0.0f32; 4];
+        for slot in cycles.iter_mut() {
+            let start = DWT::cycle_count();
+            let outputs = ctx.invoke(infer, &[&input], arena)?;
+            *slot = DWT::cycle_count().wrapping_sub(start);
+            outputs[0].read_into_f32(&device, &mut logits)?;
+        }
+        defmt::info!(
+            "instruction cache {}: last invoke classified: {} (expected 'yes')",
+            if cache_on { "on" } else { "off" },
+            best_label(&logits)
+        );
 
-    let stats = summarise(cycles).expect("TIMED_INVOKES is above zero");
-    defmt::info!(
-        "cycles: min {} median {} p99 {} max {}",
-        stats.min,
-        stats.median,
-        stats.p99,
-        stats.max
-    );
-    defmt::info!(
-        "microseconds at {} Hz: min {} median {} p99 {} max {}",
-        CORE_CLOCK_HZ,
-        cycles_to_micros(stats.min, CORE_CLOCK_HZ),
-        cycles_to_micros(stats.median, CORE_CLOCK_HZ),
-        cycles_to_micros(stats.p99, CORE_CLOCK_HZ),
-        cycles_to_micros(stats.max, CORE_CLOCK_HZ)
-    );
+        let stats = summarise(cycles).expect("TIMED_INVOKES is above zero");
+        defmt::info!(
+            "cycles: min {} median {} p99 {} max {}",
+            stats.min,
+            stats.median,
+            stats.p99,
+            stats.max
+        );
+        defmt::info!(
+            "microseconds at {} Hz: min {} median {} p99 {} max {}",
+            CORE_CLOCK_HZ,
+            cycles_to_micros(stats.min, CORE_CLOCK_HZ),
+            cycles_to_micros(stats.median, CORE_CLOCK_HZ),
+            cycles_to_micros(stats.p99, CORE_CLOCK_HZ),
+            cycles_to_micros(stats.max, CORE_CLOCK_HZ)
+        );
+    }
     Ok(())
 }
