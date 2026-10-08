@@ -166,6 +166,25 @@ jobs:
           (cd examples/microbit-v2-kws && cargo build --release --features int8)
           (cd examples/arduino-nano33ble-kws && cargo build --release)
 
+  # TFLite-Micro baseline example: it needs no IREE runtime. The fetch script
+  # clones the pinned source, then the host test and the firmware build run.
+  tflm-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi g++-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup target add thumbv7em-none-eabihf
+      - name: Fetch TFLite-Micro
+        run: examples/microbit-v2-tflm/scripts/fetch-tflm.sh
+      - name: Shim test on the host
+        run: examples/microbit-v2-tflm/scripts/host-check.sh
+      - name: Build the firmware
+        run: |
+          cd examples/microbit-v2-tflm
+          cargo build --release
+
   # Tagged builds publish the artefacts as a GitHub release.
   release:
     if: startsWith(github.ref, 'refs/tags/v')
