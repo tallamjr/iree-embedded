@@ -176,6 +176,48 @@ one command:
 After the boot self-test on the embedded "yes" clip, the firmware classifies
 one second of live microphone audio per loop and prints the verdict over RTT.
 
+## Size and timing
+
+`scripts/size-report.sh` builds the release firmware and prints a markdown
+table for each binary: `.text`, `.rodata`, `.data`, `.bss`, the flash total,
+`.uninit` and the static RAM. It gives the share of the nRF52833 (512 KB flash,
+128 KB RAM). Pass an ELF path to report one file without a build. The tools
+`arm-none-eabi-size` and `jq` must be on the PATH.
+
+```sh
+scripts/size-report.sh
+```
+
+`src/bin/timing.rs` is a second firmware that times the model on the device
+under test (DUT). It computes the features once from the embedded "yes" clip,
+runs 10 warm-up invokes, then times 1000 invokes of the model alone with the
+DWT cycle counter. It prints min, median, p99 and max, in cycles and in
+microseconds at 64 MHz, with `defmt`. The statistics come from the
+`cycle-stats` crate, which has host tests:
+`cargo test -p cycle-stats --target aarch64-apple-darwin`.
+
+To run the hardware test, connect the board and run:
+
+```sh
+cargo run --release --bin timing
+```
+
+The probe-rs runner flashes the timing firmware and prints the results over
+RTT. The top-left LED of the matrix turns on when the run is done. A fast blink
+of that LED means an error. Plain `cargo run --release` still starts the main
+firmware.
+
+Size report of the release build (static RAM includes the 56 KB arena):
+
+| Binary | Flash | Static RAM |
+|---|---:|---:|
+| microbit-v2-kws | 437372 B (83.4%) | 94936 B (72.4%) |
+| timing | 437460 B (83.4%) | 80472 B (61.4%) |
+
+The timing firmware leaves about 49 KB of RAM for the stack.
+
+The timing numbers are not yet measured. No board has run this binary.
+
 ## Smoke check
 
 To prove just the runtime before trusting the heavier model, point `main.rs` at
@@ -186,13 +228,15 @@ symbol `simple_mul_dispatch_0_library_query`, entry `module.simple_mul`) and
 ## Layout
 
 This directory is self-contained. It is its own Cargo workspace: the firmware
-binary plus a bundled `kws-frontend/` crate (the pure-Rust audio front end).
+binary plus the bundled `kws-frontend/` crate (the pure-Rust audio front end)
+and the `cycle-stats/` crate.
 The only path dependency that points outside is `iree-embedded`, the reusable
 runtime library this example exists to demonstrate.
 
 ```
 examples/microbit-v2-kws/
-  src/            firmware (no_std, no_main, thumbv7em)
+  src/            firmware: main.rs, bin/timing.rs, shared lib.rs
+  cycle-stats/    cycle statistics for the timing firmware (host-testable)
   kws-frontend/   bundled audio front end (no_std lib, host-testable)
   models/         iree-compile output + the embedded "yes" clip
 ```
