@@ -23,8 +23,20 @@ impl Tensor {
         )
     }
 
-    /// Allocate a device-local u8 buffer view, copying `data` in (e.g. an
-    /// int8/uint8 quantized model input).
+    /// Allocate a device-local i8 buffer view, copying `data` in (e.g. an
+    /// int8 quantized model input).
+    pub fn from_i8(device: &Device, shape: &[usize], data: &[i8]) -> Result<Self> {
+        Self::from_bytes(
+            device,
+            shape,
+            sys::IREE_HAL_ELEMENT_TYPE_SINT_8,
+            data.as_ptr() as *const c_void,
+            data.len(),
+        )
+    }
+
+    /// Allocate a device-local u8 buffer view, copying `data` in (e.g. a
+    /// uint8 quantized model input).
     pub fn from_u8(device: &Device, shape: &[usize], data: &[u8]) -> Result<Self> {
         Self::from_bytes(
             device,
@@ -111,5 +123,36 @@ impl Drop for Tensor {
     fn drop(&mut self) {
         // SAFETY: raw is an owned buffer-view reference.
         unsafe { sys::iree_hal_buffer_view_release(self.raw) };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Arena;
+
+    #[test]
+    fn from_i8_makes_an_int8_buffer_with_the_given_bytes() {
+        static mut BUF: [u8; 1024 * 1024] = [0; 1024 * 1024];
+        // SAFETY: single-threaded test with exclusive access to BUF.
+        let arena = unsafe { Arena::new(&mut *core::ptr::addr_of_mut!(BUF)) };
+        let device = Device::local_sync(&arena).expect("device");
+
+        let values: [i8; 6] = [-128, -50, -1, 0, 1, 127];
+        let tensor = Tensor::from_i8(&device, &[2, 3], &values).expect("tensor");
+
+        // SAFETY: raw is a valid buffer view owned by tensor.
+        let (element_type, rank) = unsafe {
+            (
+                sys::iree_hal_buffer_view_element_type(tensor.raw()),
+                sys::iree_hal_buffer_view_shape_rank(tensor.raw()),
+            )
+        };
+        assert_eq!(element_type, sys::IREE_HAL_ELEMENT_TYPE_SINT_8);
+        assert_eq!(rank, 2);
+
+        let mut bytes = [0u8; 6];
+        tensor.read_into_u8(&device, &mut bytes).expect("read");
+        assert_eq!(bytes, values.map(|value| value as u8));
     }
 }
