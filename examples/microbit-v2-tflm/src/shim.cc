@@ -45,6 +45,14 @@ int32_t tflm_set_input(const int8_t* data, size_t count) {
   return TFLM_OK;
 }
 
+int32_t tflm_read_input(int8_t* data, size_t count) {
+  if (interpreter == nullptr) return TFLM_ERR_NOT_INIT;
+  const TfLiteTensor* input = interpreter->input(0);
+  if (input->type != kTfLiteInt8 || input->bytes != count) return TFLM_ERR_SIZE;
+  for (size_t i = 0; i < count; i++) data[i] = input->data.int8[i];
+  return TFLM_OK;
+}
+
 int32_t tflm_invoke(void) {
   if (interpreter == nullptr) return TFLM_ERR_NOT_INIT;
   return interpreter->Invoke() == kTfLiteOk ? TFLM_OK : TFLM_ERR_INVOKE;

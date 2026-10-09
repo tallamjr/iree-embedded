@@ -75,11 +75,14 @@ fn run(arena: &'static mut [u8], cycles: &mut [u32; TIMED_INVOKES]) -> Result<()
     for cache_on in [false, true] {
         nrf_pac::NVMC.icachecnf().write(|w| w.set_cacheen(cache_on));
         for _ in 0..WARMUP_INVOKES {
+            interpreter.set_input(features())?;
             interpreter.invoke()?;
         }
 
         let mut logits = [0i8; 4];
         for slot in cycles.iter_mut() {
+            // The model overwrites its input while it runs, so set it each time.
+            interpreter.set_input(features())?;
             let start = DWT::cycle_count();
             interpreter.invoke()?;
             *slot = DWT::cycle_count().wrapping_sub(start);

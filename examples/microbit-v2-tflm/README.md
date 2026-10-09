@@ -37,6 +37,18 @@ The script compiles the same TFLite-Micro files and `src/shim.cc` with the host 
 
 Result on macOS (Apple clang through `c++`, arm64): logits `-50 -4 121 -4`, equal to the reference. The arena used is 7152 bytes. This host figure uses 8-byte pointers. The Cortex-M figure comes from the board run.
 
+## Test the firmware code in an emulator
+
+    scripts/qemu-check.sh
+
+The script runs `qemu_tflm` on an emulated Cortex-M4F (qemu `mps2-an386`, needs `qemu-system-arm`). It uses the same C++ objects, newlib and libgcc as the firmware. It sets the input before each of 20 invokes and checks the logits. It also shows what a second invoke without a new input gives: `[27, 15, 10, 6]`. Emulator cycle counts mean nothing.
+
+## Set the input before every invoke
+
+The model overwrites its input tensor while it runs, because TFLite-Micro reuses arena memory. A second invoke without a new input reads wrong data. The timing firmware once did this and printed `[14, 14, 14, 14]` on the board. The firmware now calls `set_input` before each invoke, outside the timed region. `scripts/host-check.sh` and `qemu_tflm` test this.
+
+`diag_tflm` prints the status codes, the first bytes of the model, features and input tensor, and the output of one run. Run it with `cargo run --release --bin diag_tflm`.
+
 ## Run on a board
 
 Connect the micro:bit v2 with USB. Then run:

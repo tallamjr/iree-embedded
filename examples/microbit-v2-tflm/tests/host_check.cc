@@ -65,6 +65,25 @@ int main(int argc, char** argv) {
          logits[2], logits[3], tflm_arena_used());
   printf(equal ? "PASS: logits equal the reference\n"
                : "FAIL: logits differ from the reference\n");
+  // The model overwrites its input tensor while it runs. A second invoke
+  // without a new input is wrong, so the firmware must set the input before
+  // every invoke. Ten rounds with set_input must all equal the reference.
+  if (tflm_invoke() != TFLM_OK || tflm_read_output(logits, kLogitCount) != TFLM_OK) return 1;
+  printf("invoke again without set_input: %d %d %d %d\n", logits[0], logits[1],
+         logits[2], logits[3]);
+  bool differs = false;
+  for (size_t i = 0; i < kLogitCount; i++) differs = differs || logits[i] != kExpected[i];
+  if (!differs) return 1;
+  bool repeat_equal = true;
+  for (int round = 0; round < 10; round++) {
+    if (tflm_set_input(features, kFeatureCount) != TFLM_OK || tflm_invoke() != TFLM_OK ||
+        tflm_read_output(logits, kLogitCount) != TFLM_OK)
+      return 1;
+    for (size_t i = 0; i < kLogitCount; i++) repeat_equal = repeat_equal && logits[i] == kExpected[i];
+  }
+  printf(repeat_equal ? "PASS: ten repeated runs equal the reference\n"
+                      : "FAIL: repeated runs differ\n");
+  if (!repeat_equal) return 1;
   // A second init must fail, and the shim must reject a wrong input size.
   if (tflm_init(model_bytes, arena, kArenaBytes) != TFLM_ERR_ALREADY_INIT) return 1;
   if (tflm_set_input(features, kFeatureCount - 1) != TFLM_ERR_SIZE) return 1;
