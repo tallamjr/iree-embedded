@@ -23,6 +23,7 @@ enum {
 // model needs 16-byte alignment and the arena needs 16-byte alignment.
 int32_t tflm_init(const uint8_t* model, uint8_t* arena, size_t arena_len);
 int32_t tflm_set_input(const int8_t* data, size_t count);
+int32_t tflm_read_input(int8_t* data, size_t count);
 int32_t tflm_invoke(void);
 int32_t tflm_read_output(int8_t* data, size_t count);
 // Bytes of the arena that the interpreter uses.

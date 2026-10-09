@@ -71,13 +71,17 @@ fn compile_tflm() {
         build.file(tree.join(line));
         println!("cargo:rerun-if-changed={}", tree.join(line).display());
     }
-    build.file("src/shim.cc").file("src/platform.cc");
+    build
+        .file("src/shim.cc")
+        .file("src/platform.cc")
+        .file("src/diag.cc");
     build.compile("tflm");
 
     println!("cargo:rerun-if-changed={list_path}");
     println!("cargo:rerun-if-changed=src/shim.cc");
     println!("cargo:rerun-if-changed=src/shim.h");
     println!("cargo:rerun-if-changed=src/platform.cc");
+    println!("cargo:rerun-if-changed=src/diag.cc");
 }
 
 /// Ask arm-none-eabi-gcc for a library path; the CPU flags pick the hard-float

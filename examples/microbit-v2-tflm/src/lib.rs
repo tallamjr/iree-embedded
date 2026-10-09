@@ -7,6 +7,8 @@
 
 mod ffi;
 
+pub use ffi::{double_to_i64, frexp, paint_stack, quantize_multiplier, round};
+
 /// Core clock of the nRF52833 in Hz.
 pub const CORE_CLOCK_HZ: u32 = 64_000_000;
 
@@ -80,6 +82,11 @@ impl Interpreter {
     /// Copy the features into the input tensor.
     pub fn set_input(&mut self, features: &[i8]) -> Result<(), Error> {
         ffi::set_input(features)
+    }
+
+    /// Copy the input tensor into `features`. Used to check the input copy.
+    pub fn read_input(&self, features: &mut [i8]) -> Result<(), Error> {
+        ffi::read_input(features)
     }
 
     /// Run the model once.
