@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
-# Print a markdown flash and RAM report for the release firmware.
+# Print a markdown flash and RAM report, and the symbol split, for the release
+# firmware. The symbol split is the script of the IREE example, so that every
+# firmware is grouped by the same rules.
 # Usage: scripts/size-report.sh [elf]
-# With no argument it builds every release binary and reports each one.
+# With no argument it builds timing_tflm (reference kernels) and
+# timing_tflm_cmsis (CMSIS-NN kernels, with the cmsis-nn feature) and reports
+# both. The two builds use separate target directories under target/.
 set -euo pipefail
 
 readonly FLASH_TOTAL_BYTES=524288 # nRF52833: 512 KB
 readonly RAM_TOTAL_BYTES=131072   # nRF52833: 128 KB
+
+SYMBOL_SPLIT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../microbit-v2-kws/scripts/symbol-split.sh"
 
 for tool in arm-none-eabi-size cargo jq awk; do
   if ! command -v "$tool" > /dev/null; then
@@ -44,6 +50,7 @@ report() {
       printf "| Static RAM (.data + .bss + .uninit) | %d | %.1f%% of 128 KB |\n", ram, 100 * ram / ram_total
     }'
   echo
+  "$SYMBOL_SPLIT" "$elf"
 }
 
 if [ "$#" -gt 1 ]; then
@@ -57,13 +64,17 @@ if [ "$#" -eq 1 ]; then
 fi
 
 cd "$(dirname "$0")/.."
-# cargo prints one JSON line per built artefact; keep the binaries.
-elfs="$(cargo build --release --bins --message-format=json-render-diagnostics \
-  | jq -r 'select(.reason == "compiler-artifact" and .executable != null) | .executable')"
-if [ -z "$elfs" ]; then
-  echo "ERROR: cargo built no binaries" >&2
+build_elf() {
+  local target_dir="$1"
+  shift
+  cargo build --release --target-dir "$target_dir" "$@" --message-format=json-render-diagnostics \
+    | jq -r 'select(.reason == "compiler-artifact" and .executable != null) | .executable'
+}
+reference_elf="$(build_elf target/reference --bin timing_tflm)"
+cmsis_elf="$(build_elf target/cmsis-nn --features cmsis-nn --bin timing_tflm_cmsis)"
+if [ -z "$reference_elf" ] || [ -z "$cmsis_elf" ]; then
+  echo "ERROR: cargo built no binary" >&2
   exit 1
 fi
-while IFS= read -r elf; do
-  report "$elf"
-done <<< "$elfs"
+report "$reference_elf"
+report "$cmsis_elf"
