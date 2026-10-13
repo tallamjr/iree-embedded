@@ -8,7 +8,7 @@
 # Examples:
 #   arena-bisect.sh examples/microbit-v2-tflm arena_tflm TFLM_ARENA_BYTES 4096 16384
 #   arena-bisect.sh examples/microbit-v2-kws arena_int8 IREE_ARENA_BYTES 16384 57344 int8
-# The log goes to <example-dir>/results/arena-bisect-<bin>.log.
+# The log goes to <example-dir>/results/arena-bisect-<bin>-<features>.log (default when none).
 set -euo pipefail
 
 if [ "$#" -lt 5 ] || [ "$#" -gt 6 ]; then
@@ -27,7 +27,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/board-lib.sh"
 
 results_dir="$example_dir/results"
 mkdir -p "$results_dir"
-log="$results_dir/arena-bisect-${bin}.log"
+log="$results_dir/arena-bisect-${bin}-${features:-default}.log"
 if [ -e "$log" ]; then
   echo "ERROR: $log exists; move it first" >&2
   exit 1
