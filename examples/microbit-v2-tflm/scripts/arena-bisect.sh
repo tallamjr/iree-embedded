@@ -35,11 +35,8 @@ fi
 scratch_dir="$(mktemp -d)"
 
 {
-  echo "# date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "# commit: $(git -C "$example_dir" rev-parse HEAD)"
-  echo "# binary: $bin, features: ${features:-none}, variable: $env_var"
-  echo "# arm-none-eabi-g++: $(arm-none-eabi-g++ --version | sed -n 1p)"
-  echo "# rustc: $(rustc --version)"
+  log_header "$example_dir" "$bin" "$features"
+  echo "# arena variable: $env_var"
 } > "$log"
 
 result_seen() {

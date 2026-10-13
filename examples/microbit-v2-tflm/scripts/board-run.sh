@@ -42,20 +42,7 @@ scratch_dir="$(mktemp -d)"
 raw="$scratch_dir/raw.log"
 
 elf="$(build_elf "$example_dir" "$bin" "$features")"
-tree_state="clean"
-if [ -n "$(git -C "$example_dir" status --porcelain -- . ':!results')" ]; then
-  tree_state="dirty"
-fi
-
-{
-  echo "# date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "# commit: $(git -C "$example_dir" rev-parse HEAD) (tree $tree_state)"
-  echo "# binary: $bin"
-  echo "# features: ${features:-none}"
-  echo "# arm-none-eabi-g++: $(arm-none-eabi-g++ --version | sed -n 1p)"
-  echo "# rustc: $(rustc --version)"
-  echo "# board: BBC micro:bit v2, nRF52833, 64 MHz, chip $BOARD_CHIP"
-} > "$candidate"
+log_header "$example_dir" "$bin" "$features" > "$candidate"
 
 run_finished() {
   [ "$(awk '/microseconds at/ { n++ } END { print n + 0 }' "$1")" -ge 2 ] || grep -q -E "ERROR|panick" "$1"
