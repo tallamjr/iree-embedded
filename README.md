@@ -158,7 +158,7 @@ committed `.o`/`.vmfb`.
 | `crates/iree-embedded`           | Safe `no_std` public API.                                                                                                |
 | `examples/microbit-v2-kws`       | Live keyword-spotting demo; a self-contained workspace that bundles its own pure-Rust audio front end (`kws-frontend/`). |
 | `examples/arduino-nano33ble-kws` | The same demo on the Nano 33 BLE Sense (PDM mic, USB flashing, LED feedback); equally self-contained.                    |
-| `examples/microbit-v2-tflm`      | Timing baseline: the same int8 model on TFLite-Micro (C++ with reference kernels), for a speed and size comparison. It has no IREE. |
+| `examples/microbit-v2-tflm`      | Timing baseline: the same int8 model on TFLite-Micro (C++, reference and CMSIS-NN kernels), for a speed and size comparison. It has no IREE. Results: [`results/README.md`](examples/microbit-v2-tflm/results/README.md). |
 
 ## Building
 

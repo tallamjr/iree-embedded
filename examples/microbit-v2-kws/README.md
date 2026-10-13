@@ -288,8 +288,10 @@ The run did 10 warm-up invokes and 1000 timed invokes per setting.
   -5.8708, -1.6512, 9.8153 and -1.6512 (label yes).
 
 Sizes of `timing_int8` (release build, `scripts/size-report.sh`): flash
-391,368 bytes, static RAM 65,912 bytes (including the 56 KB arena). The
+386,648 bytes, static RAM 65,912 bytes (including the 56 KB arena). The
 compiled files are 18,176 bytes (`.o`) and 23,689 bytes (`.vmfb`).
+
+Board timing, arena size and the comparison with TFLite-Micro: [`../microbit-v2-tflm/results/README.md`](../microbit-v2-tflm/results/README.md). The logs of `timing_int8` are in `results/`.
 
 ## Symbol split
 
@@ -312,17 +314,17 @@ The runtime-only share is the runtime group divided by the flash total. Limits
 of the method: it uses names, not object files. TFLite-Micro helper functions
 that the kernels call (for example the quantisation set-up) count as runtime.
 
-Result for `timing_int8` (flash 391,368 bytes, static RAM 65,912 bytes):
+Result for `timing_int8` (flash 386,648 bytes, static RAM 65,912 bytes):
 
 | Group | Flash bytes | Flash share | Static RAM bytes |
 |---|---:|---:|---:|
-| runtime | 227,130 | 58.0% | 116 |
+| runtime | 222,612 | 57.6% | 116 |
 | model kernels | 3,756 | 1.0% | 240 |
 | model data | 23,744 | 6.1% | 0 |
 | hal | 1,212 | 0.3% | 1,478 |
 | rust | 12,774 | 3.3% | 61,370 |
-| libc | 84,634 | 21.6% | 2,597 |
-| not covered by symbols | 38,118 | 9.7% | 111 |
+| libc | 84,438 | 21.8% | 2,597 |
+| not covered by symbols | 38,112 | 9.9% | 111 |
 
 The IREE runtime includes the bytecode verifier and disassembler
 (`iree_vm_bytecode_function_verify`, `iree_vm_bytecode_disassemble_op_impl`,
