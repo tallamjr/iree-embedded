@@ -1,0 +1,59 @@
+# Size reports for timing_int8 (IREE int8).
+# commit: fd38b5352f46bb11e803d3e97313a7158df0fb2b
+
+## IREE int8, default arena 57344 B
+### timing_int8
+
+| Item | Bytes | Share of nRF52833 |
+|---|---:|---:|
+| .text | 313564 | |
+| .rodata | 70264 | |
+| .data | 2820 | |
+| .bss | 62068 | |
+| Flash total (.text + .rodata + .data) | 386648 | 73.7% of 512 KB |
+| .uninit | 1024 | |
+| Static RAM (.data + .bss + .uninit) | 65912 | 50.3% of 128 KB |
+
+### timing_int8 symbol split
+
+| Group | Flash bytes | Flash share | Static RAM bytes |
+|---|---:|---:|---:|
+| runtime | 222612 | 57.6% | 116 |
+| model kernels | 3756 | 1.0% | 240 |
+| model data | 23744 | 6.1% | 0 |
+| hal | 1212 | 0.3% | 1478 |
+| rust | 12774 | 3.3% | 61370 |
+| libc | 84438 | 21.8% | 2597 |
+| not covered by symbols | 38112 | 9.9% | 111 |
+| total (size -A) | 386648 | 100.0% | 65912 |
+
+Runtime-only share of flash: 57.6% (222612 of 386648 bytes).
+
+
+## IREE int8, arena 52028 B
+### timing_int8
+
+| Item | Bytes | Share of nRF52833 |
+|---|---:|---:|
+| .text | 313564 | |
+| .rodata | 70264 | |
+| .data | 2820 | |
+| .bss | 56756 | |
+| Flash total (.text + .rodata + .data) | 386648 | 73.7% of 512 KB |
+| .uninit | 1024 | |
+| Static RAM (.data + .bss + .uninit) | 60600 | 46.2% of 128 KB |
+
+### timing_int8 symbol split
+
+| Group | Flash bytes | Flash share | Static RAM bytes |
+|---|---:|---:|---:|
+| runtime | 222612 | 57.6% | 116 |
+| model kernels | 3756 | 1.0% | 240 |
+| model data | 23744 | 6.1% | 0 |
+| hal | 1212 | 0.3% | 1478 |
+| rust | 12778 | 3.3% | 56054 |
+| libc | 84438 | 21.8% | 2597 |
+| not covered by symbols | 38108 | 9.9% | 115 |
+| total (size -A) | 386648 | 100.0% | 60600 |
+
+Runtime-only share of flash: 57.6% (222612 of 386648 bytes).

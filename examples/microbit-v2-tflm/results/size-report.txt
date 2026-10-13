@@ -1,0 +1,117 @@
+# Size reports from scripts/size-report.sh and arm-none-eabi-size -A.
+# commit: fd38b5352f46bb11e803d3e97313a7158df0fb2b
+# arm-none-eabi-g++: arm-none-eabi-g++ (GNU Arm Embedded Toolchain 10.3-2021.10) 10.3.1 20210824 (release)
+# rustc: rustc 1.98.0-nightly (54333ff07 2026-05-22)
+
+## TFLM, default arena 16384 B
+### timing_tflm
+
+| Item | Bytes | Share of nRF52833 |
+|---|---:|---:|
+| .text | 32512 | |
+| .rodata | 23640 | |
+| .data | 1128 | |
+| .bss | 21152 | |
+| Flash total (.text + .rodata + .data) | 57280 | 10.9% of 512 KB |
+| .uninit | 1024 | |
+| Static RAM (.data + .bss + .uninit) | 23304 | 17.8% of 128 KB |
+
+### timing_tflm symbol split
+
+| Group | Flash bytes | Flash share | Static RAM bytes |
+|---|---:|---:|---:|
+| runtime | 12704 | 22.2% | 0 |
+| model kernels | 6354 | 11.1% | 0 |
+| model data | 18656 | 32.6% | 0 |
+| hal | 1168 | 2.0% | 1478 |
+| rust | 6274 | 11.0% | 20677 |
+| libc | 8914 | 15.6% | 1131 |
+| not covered by symbols | 3210 | 5.6% | 18 |
+| total (size -A) | 57280 | 100.0% | 23304 |
+
+Runtime-only share of flash: 22.2% (12704 of 57280 bytes).
+
+### timing_tflm_cmsis
+
+| Item | Bytes | Share of nRF52833 |
+|---|---:|---:|
+| .text | 49984 | |
+| .rodata | 23644 | |
+| .data | 1128 | |
+| .bss | 21152 | |
+| Flash total (.text + .rodata + .data) | 74756 | 14.3% of 512 KB |
+| .uninit | 1024 | |
+| Static RAM (.data + .bss + .uninit) | 23304 | 17.8% of 128 KB |
+
+### timing_tflm_cmsis symbol split
+
+| Group | Flash bytes | Flash share | Static RAM bytes |
+|---|---:|---:|---:|
+| runtime | 12436 | 16.6% | 0 |
+| model kernels | 23098 | 30.9% | 0 |
+| model data | 18656 | 25.0% | 0 |
+| hal | 1168 | 1.6% | 1478 |
+| rust | 6274 | 8.4% | 20677 |
+| libc | 9898 | 13.2% | 1131 |
+| not covered by symbols | 3226 | 4.3% | 18 |
+| total (size -A) | 74756 | 100.0% | 23304 |
+
+Runtime-only share of flash: 16.6% (12436 of 74756 bytes).
+
+
+## TFLM reference, arena 6700 B
+### timing_tflm
+
+| Item | Bytes | Share of nRF52833 |
+|---|---:|---:|
+| .text | 32512 | |
+| .rodata | 23640 | |
+| .data | 1128 | |
+| .bss | 11472 | |
+| Flash total (.text + .rodata + .data) | 57280 | 10.9% of 512 KB |
+| .uninit | 1024 | |
+| Static RAM (.data + .bss + .uninit) | 13624 | 10.4% of 128 KB |
+
+### timing_tflm symbol split
+
+| Group | Flash bytes | Flash share | Static RAM bytes |
+|---|---:|---:|---:|
+| runtime | 12704 | 22.2% | 0 |
+| model kernels | 6354 | 11.1% | 0 |
+| model data | 18656 | 32.6% | 0 |
+| hal | 1168 | 2.0% | 1478 |
+| rust | 6274 | 11.0% | 10997 |
+| libc | 8914 | 15.6% | 1131 |
+| not covered by symbols | 3210 | 5.6% | 18 |
+| total (size -A) | 57280 | 100.0% | 13624 |
+
+Runtime-only share of flash: 22.2% (12704 of 57280 bytes).
+
+
+## TFLM CMSIS-NN, arena 6736 B
+### timing_tflm_cmsis
+
+| Item | Bytes | Share of nRF52833 |
+|---|---:|---:|
+| .text | 49984 | |
+| .rodata | 23644 | |
+| .data | 1128 | |
+| .bss | 11504 | |
+| Flash total (.text + .rodata + .data) | 74756 | 14.3% of 512 KB |
+| .uninit | 1024 | |
+| Static RAM (.data + .bss + .uninit) | 13656 | 10.4% of 128 KB |
+
+### timing_tflm_cmsis symbol split
+
+| Group | Flash bytes | Flash share | Static RAM bytes |
+|---|---:|---:|---:|
+| runtime | 12436 | 16.6% | 0 |
+| model kernels | 23098 | 30.9% | 0 |
+| model data | 18656 | 25.0% | 0 |
+| hal | 1168 | 1.6% | 1478 |
+| rust | 6274 | 8.4% | 11029 |
+| libc | 9898 | 13.2% | 1131 |
+| not covered by symbols | 3226 | 4.3% | 18 |
+| total (size -A) | 74756 | 100.0% | 13656 |
+
+Runtime-only share of flash: 16.6% (12436 of 74756 bytes).

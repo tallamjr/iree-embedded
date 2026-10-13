@@ -4,7 +4,7 @@ This example runs the int8 `micro_speech` model on TFLite-Micro. It has two buil
 
 It is the baseline for the IREE firmware `timing_int8` in [`../microbit-v2-kws`](../microbit-v2-kws/README.md). Both firmware images run the same model weights on the same fixed feature file. This example does not use IREE.
 
-**There is no valid board result yet.** The numbers below are build sizes, a host test and an emulator test. There are no valid cycle counts.
+Board results (cycles, smallest arena, flash and RAM) are in [`results/README.md`](results/README.md). The sections below describe the build, the host test and the emulator test.
 
 A first board run found a bug: the firmware did not set the input before each invoke, and the model overwrites its input. It printed wrong logits. The fix is in commit `4e43aa9`. The timing of that first run is not valid.
 
@@ -94,7 +94,7 @@ The top-left LED is solid when the run finishes and blinks fast when it fails.
 | Flash (`.text` + `.rodata` + `.data`), bytes | 57,280 | 74,756 |
 | Static RAM (`.data` + `.bss` + `.uninit`), bytes | 23,304 | 23,304 |
 
-The flash figure contains the 18,648 byte model. The static RAM figure contains the 16 KiB arena, the 4,000 byte cycle buffer and the 1,024 byte RTT buffer. The 16 KiB arena is not minimal. For the comparison, count the smallest working arena. The host run needs 7152 bytes (reference) and 7200 bytes (CMSIS-NN). Read the Cortex-M value from the firmware output.
+The flash figure contains the 18,648 byte model. The static RAM figure contains the 16 KiB arena, the 4,000 byte cycle buffer and the 1,024 byte RTT buffer. The 16 KiB arena is not minimal. The smallest working arena on the board is 6700 bytes (reference) and 6736 bytes (CMSIS-NN); see `results/README.md`.
 
 ### Symbol split
 
@@ -123,8 +123,11 @@ The CMSIS-NN kernels are 16,744 bytes larger than the reference kernels. They in
 - Unsafe code: only `src/ffi.rs` has it, as the calls into the C++ shim. The firmware `src/bin/timing_tflm.rs` uses `#![forbid(unsafe_code)]`.
 - `cycle-stats/` is a copy of the crate in `microbit-v2-kws`, so that this example is a self-contained cargo workspace.
 
+## Results
+
+Board logs, the results table and the arena bisection are in [`results/README.md`](results/README.md). `scripts/board-run.sh` makes a log. `scripts/arena-bisect.sh` finds the smallest arena. `TFLM_ARENA_BYTES` sets the arena size at build time.
+
 ## Open points
 
-- No valid cycle counts exist for either build.
-- The arena is a fixed 16 KiB. The smallest working arena on the Cortex-M is not measured.
-- Cycle counts are not measured.
+- One board and one input clip were measured. See `results/README.md` for what is not equal between the two runtimes.
+- The CMSIS-NN depthwise layer has no SIMD code for this model, as described above.
