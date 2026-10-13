@@ -257,8 +257,16 @@ tflite-micro. It is the model for a size and speed comparison with
 TFLite-Micro (issue #11). Both runtimes run the same weights, the same cut
 before the softmax and the same fixed feature file.
 
-No board has run this firmware yet. The host checks below are the only
-results.
+A micro:bit v2 has run this firmware (2026-10-13). The logits were correct
+and the label was yes. The four logits were -5.870843, -1.6511745, 9.815315
+and -1.6511745. They are within one quantisation step of the reference.
+
+| Instruction cache | Cycles (min = median = p99) | Time at 64 MHz | Max |
+|---|---:|---:|---:|
+| off | 7,278,688 | 113.73 ms | equals min |
+| on | 6,232,422 | 97.38 ms | min + 8 |
+
+The run did 10 warm-up invokes and 1000 timed invokes per setting.
 
 - Files: `models/int8/` (see its `README.md` for the source, the commit and
   the SHA-256 values) and the compiled `models/micro_speech_int8.{o,h,vmfb}`.
@@ -271,6 +279,10 @@ results.
 - Build the firmware: `cargo build --release --features int8 --bin
   timing_int8`. The feature adds a binary. The default binaries do not change.
 - Size: `scripts/size-report.sh $CARGO_TARGET_DIR/thumbv7em-none-eabihf/release/timing_int8`.
+- Symbol split (runtime, model kernels, model data, HAL, Rust app, C
+  library): `scripts/symbol-split.sh $CARGO_TARGET_DIR/thumbv7em-none-eabihf/release/timing_int8`.
+  The TFLite-Micro example uses the same script, so the runtime shares can be
+  compared. See "Symbol split" below.
 - Run: the firmware times the invoke in the same way as `timing`. After each
   pass it prints the label and the four logits. The reference logits are
   -5.8708, -1.6512, 9.8153 and -1.6512 (label yes).
@@ -278,6 +290,44 @@ results.
 Sizes of `timing_int8` (release build, `scripts/size-report.sh`): flash
 391,368 bytes, static RAM 65,912 bytes (including the 56 KB arena). The
 compiled files are 18,176 bytes (`.o`) and 23,689 bytes (`.vmfb`).
+
+## Symbol split
+
+`scripts/symbol-split.sh <elf>` sums the sizes of the symbols that
+`arm-none-eabi-nm -S -C` lists, in groups. The first matching rule wins. An
+alias at the same address counts once. Flash is text, rodata and data. Static
+RAM is data and bss. The rest of each section (string literals, padding,
+tables without a symbol size) is shown as "not covered by symbols".
+
+| Group | Rule (symbol name) |
+|---|---|
+| model data | `microbit_v2_kws::int8::VMFB` or `microbit_v2_tflm::MODEL` (the model bytes) |
+| model kernels | `tf2onnx$*` and `micro_speech_int8_nosm_linked_library_query*` (IREE compiled code); `arm_*`, `reference_integer_ops::`, and TFLite-Micro depthwise, fully connected and reshape kernel functions |
+| runtime | `iree_*`; `tflite::`, `flatbuffers::`, `tflm_*` |
+| hal | embassy, nRF PAC, cortex-m, defmt, panic-probe, static-cell symbols |
+| rust | other Rust symbols (app code, `core`, `compiler_builtins`, the arena and cycle buffers) |
+| libc | everything else: newlib, libm, libgcc, interrupt vectors, C glue |
+
+The runtime-only share is the runtime group divided by the flash total. Limits
+of the method: it uses names, not object files. TFLite-Micro helper functions
+that the kernels call (for example the quantisation set-up) count as runtime.
+
+Result for `timing_int8` (flash 391,368 bytes, static RAM 65,912 bytes):
+
+| Group | Flash bytes | Flash share | Static RAM bytes |
+|---|---:|---:|---:|
+| runtime | 227,130 | 58.0% | 116 |
+| model kernels | 3,756 | 1.0% | 240 |
+| model data | 23,744 | 6.1% | 0 |
+| hal | 1,212 | 0.3% | 1,478 |
+| rust | 12,774 | 3.3% | 61,370 |
+| libc | 84,634 | 21.6% | 2,597 |
+| not covered by symbols | 38,118 | 9.7% | 111 |
+
+The IREE runtime includes the bytecode verifier and disassembler
+(`iree_vm_bytecode_function_verify`, `iree_vm_bytecode_disassemble_op_impl`,
+95 KB together). The libc group holds newlib printf, strtod and libm code
+plus the rest of newlib. The reason these link is not tested.
 
 Host checks:
 
