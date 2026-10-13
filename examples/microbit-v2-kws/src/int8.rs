@@ -9,6 +9,21 @@ use iree_embedded::{Device, Result, Tensor, include_vmfb};
 /// Kernels are in `models/micro_speech_int8.o`; run from flash.
 pub static VMFB: &[u8] = include_vmfb!("../models/micro_speech_int8.vmfb");
 
+/// Arena size in bytes. Set `IREE_ARENA_BYTES` at build time to change it.
+pub const ARENA_BYTES: usize = parse_decimal(env!("IREE_ARENA_BYTES_RESOLVED"));
+
+/// Parse a decimal number in a constant. `build.rs` checked the text.
+const fn parse_decimal(text: &str) -> usize {
+    let digits = text.as_bytes();
+    let mut value = 0;
+    let mut index = 0;
+    while index < digits.len() {
+        value = value * 10 + (digits[index] - b'0') as usize;
+        index += 1;
+    }
+    value
+}
+
 /// 49 frames of 40 int8 values for the upstream "yes" clip.
 const FEATURE_COUNT: usize = 49 * 40;
 static FEATURES: &[u8; FEATURE_COUNT] = include_bytes!("../models/int8/yes_features_int8.bin");

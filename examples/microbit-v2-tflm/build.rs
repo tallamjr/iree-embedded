@@ -27,11 +27,26 @@ fn main() {
     fs::copy("memory.x", out.join("memory.x")).expect("copy memory.x");
     println!("cargo:rustc-link-search={}", out.display());
 
+    emit_arena_bytes();
     compile_tflm();
     link_newlib();
 
     println!("cargo:rerun-if-changed=memory.x");
     println!("cargo:rerun-if-changed=build.rs");
+}
+
+/// Pass the arena size to the crate. `TFLM_ARENA_BYTES` sets it at build time;
+/// the default is 16 KiB.
+fn emit_arena_bytes() {
+    println!("cargo:rerun-if-env-changed=TFLM_ARENA_BYTES");
+    let arena_bytes = match env::var("TFLM_ARENA_BYTES") {
+        Ok(text) => text
+            .parse::<usize>()
+            .unwrap_or_else(|error| panic!("TFLM_ARENA_BYTES {text:?}: {error}")),
+        Err(env::VarError::NotPresent) => 16 * 1024,
+        Err(error) => panic!("TFLM_ARENA_BYTES: {error}"),
+    };
+    println!("cargo:rustc-env=TFLM_ARENA_BYTES_RESOLVED={arena_bytes}");
 }
 
 /// Compile the TFLite-Micro sources and the shim with arm-none-eabi-g++.

@@ -6,8 +6,8 @@ use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_nrf::gpio::{Level, Output, OutputDrive};
 use microbit_v2_tflm::{
-    Aligned, CMSIS_NN, CORE_CLOCK_HZ, EXPECTED_LOGITS, Error, Interpreter, KERNELS, MODEL,
-    best_label, features,
+    ARENA_BYTES, Aligned, CMSIS_NN, CORE_CLOCK_HZ, EXPECTED_LOGITS, Error, Interpreter, KERNELS,
+    MODEL, best_label, features,
 };
 use panic_probe as _;
 use static_cell::StaticCell;
@@ -38,7 +38,6 @@ const _: () = assert!(
 
 const WARMUP_INVOKES: usize = 10;
 const TIMED_INVOKES: usize = 1000;
-const ARENA_BYTES: usize = 16 * 1024;
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {

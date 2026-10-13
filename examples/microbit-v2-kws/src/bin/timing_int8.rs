@@ -16,7 +16,7 @@ use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_nrf::gpio::{Level, Output, OutputDrive};
 use iree_embedded::{Arena, Context, Device, Instance, Result, link_kernels, singleton};
-use microbit_v2_kws::int8::{EXPECTED_LOGITS, VMFB, input_tensor, matches_reference};
+use microbit_v2_kws::int8::{ARENA_BYTES, EXPECTED_LOGITS, VMFB, input_tensor, matches_reference};
 use microbit_v2_kws::{CORE_CLOCK_HZ, best_label};
 use panic_probe as _;
 
@@ -41,7 +41,7 @@ async fn main(_spawner: Spawner) {
     dcb.enable_trace();
     dwt.enable_cycle_counter();
 
-    let arena = Arena::new(singleton!([u8; 56 * 1024] = [0; 56 * 1024]));
+    let arena = Arena::new(singleton!([u8; ARENA_BYTES] = [0; ARENA_BYTES]));
     let cycles = singleton!([u32; TIMED_INVOKES] = [0; TIMED_INVOKES]);
     // The top-left LED of the matrix: row 1 (P0.21) high, column 1 (P0.28) low.
     let mut row1 = Output::new(p.P0_21, Level::Low, OutputDrive::Standard);

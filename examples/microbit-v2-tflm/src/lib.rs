@@ -25,6 +25,21 @@ pub const LABELS: [&str; 4] = ["silence", "unknown", "yes", "no"];
 /// fixed features, from the other example's `models/int8/yes_logits_tflite.txt`.
 pub const EXPECTED_LOGITS: [i8; 4] = [-50, -4, 121, -4];
 
+/// Arena size in bytes. Set `TFLM_ARENA_BYTES` at build time to change it.
+pub const ARENA_BYTES: usize = parse_decimal(env!("TFLM_ARENA_BYTES_RESOLVED"));
+
+/// Parse a decimal number in a constant. `build.rs` checked the text.
+const fn parse_decimal(text: &str) -> usize {
+    let digits = text.as_bytes();
+    let mut value = 0;
+    let mut index = 0;
+    while index < digits.len() {
+        value = value * 10 + (digits[index] - b'0') as usize;
+        index += 1;
+    }
+    value
+}
+
 /// Number of int8 values the model takes: 49 frames of 40 channels.
 pub const FEATURE_COUNT: usize = 49 * 40;
 
