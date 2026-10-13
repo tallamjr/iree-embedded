@@ -1,0 +1,30 @@
+# CMSIS-NN C files that the two CMSIS-NN kernels link, relative to
+# tflm-tree-cmsis-nn/third_party/cmsis_nn/Source/. Read by build.rs and
+# scripts/host-check.sh. Found as the symbol closure of the kernel objects;
+# the s4 and s16 files are needed because the kernels call them.
+ConvolutionFunctions/arm_convolve_1x1_s8_fast.c
+ConvolutionFunctions/arm_convolve_get_buffer_sizes_s8.c
+ConvolutionFunctions/arm_depthwise_conv_3x3_s8.c
+ConvolutionFunctions/arm_depthwise_conv_get_buffer_sizes_s4.c
+ConvolutionFunctions/arm_depthwise_conv_get_buffer_sizes_s8.c
+ConvolutionFunctions/arm_depthwise_conv_s16.c
+ConvolutionFunctions/arm_depthwise_conv_s4.c
+ConvolutionFunctions/arm_depthwise_conv_s4_opt.c
+ConvolutionFunctions/arm_depthwise_conv_s8.c
+ConvolutionFunctions/arm_depthwise_conv_s8_opt.c
+ConvolutionFunctions/arm_depthwise_conv_wrapper_s4.c
+ConvolutionFunctions/arm_depthwise_conv_wrapper_s8.c
+FullyConnectedFunctions/arm_fully_connected_get_buffer_sizes_s16.c
+FullyConnectedFunctions/arm_fully_connected_get_buffer_sizes_s8.c
+FullyConnectedFunctions/arm_fully_connected_per_channel_s8.c
+FullyConnectedFunctions/arm_fully_connected_s16.c
+FullyConnectedFunctions/arm_fully_connected_s4.c
+FullyConnectedFunctions/arm_fully_connected_s8.c
+FullyConnectedFunctions/arm_fully_connected_wrapper_s8.c
+FullyConnectedFunctions/arm_vector_sum_s8.c
+NNSupportFunctions/arm_nn_mat_mult_nt_t_s8.c
+NNSupportFunctions/arm_nn_vec_mat_mult_t_per_ch_s8.c
+NNSupportFunctions/arm_nn_vec_mat_mult_t_s16.c
+NNSupportFunctions/arm_nn_vec_mat_mult_t_s4.c
+NNSupportFunctions/arm_nn_vec_mat_mult_t_s8.c
+NNSupportFunctions/arm_q7_to_q15_with_offset.c

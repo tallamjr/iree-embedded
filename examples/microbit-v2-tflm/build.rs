@@ -3,6 +3,18 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+/// Read a list file: one path per line, `#` starts a comment line.
+fn read_list(path: &str) -> Vec<String> {
+    println!("cargo:rerun-if-changed={path}");
+    fs::read_to_string(path)
+        .unwrap_or_else(|error| panic!("read {path}: {error}"))
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(str::to_owned)
+        .collect()
+}
+
 const CPU_FLAGS: [&str; 4] = [
     "-mcpu=cortex-m4",
     "-mthumb",
@@ -24,14 +36,25 @@ fn main() {
 
 /// Compile the TFLite-Micro sources and the shim with arm-none-eabi-g++.
 /// The flags match the IREE runtime build: -Os, hard float, no PIC.
+/// The `cmsis-nn` feature swaps the depthwise and fully connected kernels for
+/// the CMSIS-NN ones and adds the CMSIS-NN C files.
 fn compile_tflm() {
-    let tree = Path::new("tflm-tree");
+    let cmsis_nn = env::var_os("CARGO_FEATURE_CMSIS_NN").is_some();
+    let tree = Path::new(if cmsis_nn {
+        "tflm-tree-cmsis-nn"
+    } else {
+        "tflm-tree"
+    });
     assert!(
         tree.is_dir(),
-        "tflm-tree/ not found: run scripts/fetch-tflm.sh first"
+        "{} not found: run scripts/fetch-tflm.sh first",
+        tree.display()
     );
-    let list_path = "scripts/tflm-sources.txt";
-    let list = fs::read_to_string(list_path).expect("read the source list");
+    let kernel_list = if cmsis_nn {
+        "scripts/tflm-kernels-cmsis-nn.txt"
+    } else {
+        "scripts/tflm-kernels-reference.txt"
+    };
 
     let mut build = cc::Build::new();
     build
@@ -64,24 +87,75 @@ fn compile_tflm() {
     for flag in CPU_FLAGS {
         build.flag(flag);
     }
-    for line in list.lines().map(str::trim) {
-        if line.is_empty() || line.starts_with('#') {
-            continue;
+    if cmsis_nn {
+        build
+            .define("CMSIS_NN", None)
+            .define("ARM_NN_ENABLE_F16", "0")
+            .define("ARM_NN_ENABLE_F32", "0")
+            .include(tree.join("third_party/cmsis_nn"))
+            .include(tree.join("third_party/cmsis_nn/Include"))
+            .include(tree.join("third_party/cmsis"))
+            .include(tree.join("third_party/cmsis/CMSIS/Core/Include"));
+    }
+    for list in ["scripts/tflm-sources.txt", kernel_list] {
+        for line in read_list(list) {
+            build.file(tree.join(&line));
+            println!("cargo:rerun-if-changed={}", tree.join(&line).display());
         }
-        build.file(tree.join(line));
-        println!("cargo:rerun-if-changed={}", tree.join(line).display());
     }
     build
         .file("src/shim.cc")
         .file("src/platform.cc")
         .file("src/diag.cc");
     build.compile("tflm");
+    if cmsis_nn {
+        compile_cmsis_nn(tree);
+    }
 
-    println!("cargo:rerun-if-changed={list_path}");
     println!("cargo:rerun-if-changed=src/shim.cc");
     println!("cargo:rerun-if-changed=src/shim.h");
     println!("cargo:rerun-if-changed=src/platform.cc");
     println!("cargo:rerun-if-changed=src/diag.cc");
+}
+
+/// Compile the CMSIS-NN C files with arm-none-eabi-gcc. `-mcpu=cortex-m4`
+/// makes the compiler define `__ARM_FEATURE_DSP`, so CMSIS-NN selects its DSP
+/// (SIMD) code.
+fn compile_cmsis_nn(tree: &Path) {
+    let source_dir = tree.join("third_party/cmsis_nn/Source");
+    let mut build = cc::Build::new();
+    build
+        .compiler("arm-none-eabi-gcc")
+        .archiver("arm-none-eabi-ar")
+        .target("thumbv7em-none-eabihf")
+        .opt_level_str("s")
+        .debug(false)
+        .warnings(false)
+        .include(tree)
+        .include(tree.join("third_party/cmsis_nn"))
+        .include(tree.join("third_party/cmsis_nn/Include"))
+        .include(tree.join("third_party/cmsis"))
+        .include(tree.join("third_party/cmsis/CMSIS/Core/Include"))
+        .define("ARM_NN_ENABLE_F16", "0")
+        .define("ARM_NN_ENABLE_F32", "0")
+        .define("NDEBUG", None)
+        .flag("-fno-pic")
+        .flag("-fno-pie")
+        .flag("-fomit-frame-pointer")
+        .flag("-funsigned-char")
+        .flag("-ffunction-sections")
+        .flag("-fdata-sections");
+    for flag in CPU_FLAGS {
+        build.flag(flag);
+    }
+    for line in read_list("scripts/cmsis-nn-sources.txt") {
+        build.file(source_dir.join(&line));
+        println!(
+            "cargo:rerun-if-changed={}",
+            source_dir.join(&line).display()
+        );
+    }
+    build.compile("cmsis_nn");
 }
 
 /// Ask arm-none-eabi-gcc for a library path; the CPU flags pick the hard-float

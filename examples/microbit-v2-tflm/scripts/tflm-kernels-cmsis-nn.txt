@@ -1,0 +1,5 @@
+# CMSIS-NN kernels for the micro_speech operators, relative to
+# tflm-tree-cmsis-nn/. They replace the reference kernels. Reshape stays
+# the reference kernel.
+tensorflow/lite/micro/kernels/cmsis_nn/depthwise_conv.cc
+tensorflow/lite/micro/kernels/cmsis_nn/fully_connected.cc
