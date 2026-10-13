@@ -263,10 +263,12 @@ and -1.6511745. They are within one quantisation step of the reference.
 
 | Instruction cache | Cycles (min = median = p99) | Time at 64 MHz | Max |
 |---|---:|---:|---:|
-| off | 7,278,688 | 113.73 ms | equals min |
-| on | 6,232,422 | 97.38 ms | min + 8 |
+| off | 7,279,930 | 113.75 ms | equals min |
+| on | 6,233,349 | 97.40 ms | min + 6 |
 
-The run did 10 warm-up invokes and 1000 timed invokes per setting.
+The run did 10 warm-up invokes and 1000 timed invokes per setting. Three runs gave the same numbers. The raw logs are in `results/` (`timing_int8-run1.log` to `-run3.log`). The table with TFLite-Micro is in [`../microbit-v2-tflm/results/README.md`](../microbit-v2-tflm/results/README.md).
+
+The flash figure depends on which IREE runtime library is linked. The prebuilt v0.1.1 download gives 386,648 bytes. A local `.iree/build/mcu` build gives 391,368 bytes. The three runs above used the prebuilt download: the worktree has no `.iree` folder, no `IREE_RUNTIME_DIR` or `IREE_SRC_DIR` was set, and the build unpacked the download into its output folder. The log header of any later run names the source.
 
 - Files: `models/int8/` (see its `README.md` for the source, the commit and
   the SHA-256 values) and the compiled `models/micro_speech_int8.{o,h,vmfb}`.

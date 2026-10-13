@@ -12,6 +12,7 @@ Every number below comes from a log file in this folder or in [`../../microbit-v
 - Model: `micro_speech_int8_nosm.tflite`, SHA-256 `34f10a8ea3f5b75919d2c65b4a2990179cc7c04962b77e0094fd69617cb9196a` (the upstream int8 model without softmax). Both runtimes use the same file.
 - Feature file: `yes_features_int8.bin`, SHA-256 `83077a32cd04b7bc28bb923faef883207fa9fad6513d2bcb526c9c3660a96c8d`. Both examples hold identical copies.
 - Method: 10 warm-up invokes, then 1000 timed invokes of the model only. The DWT cycle counter wraps the invoke call. No logging in the timed region. The instruction cache is off, then on.
+- IREE runtime library: the prebuilt v0.1.1 download (`iree-embedded-sys` 0.1.1). Evidence: the build tree had no `.iree` folder, no `IREE_RUNTIME_DIR` or `IREE_SRC_DIR` was set, and the build output folder held the unpacked download. The logs of these runs have no line that names the source; logs from later runs do. A local `.iree/build/mcu` build gives a larger flash total of 391,368 bytes (arena size does not change it).
 - Check: every run printed correct logits. TFLM must equal `[-50, -4, 121, -4]` exactly. IREE must be within one step (0.0917) of the reference.
 
 ## Results
@@ -51,6 +52,8 @@ Source files:
 
 The smallest arena is the least size, to the byte, that gives correct logits after one init and one invoke. It comes from a bisection on the board with `arena_tflm` and `arena_int8`. The size below fails and the size itself passes (6,699 fails and 6,700 passes; 6,735 and 6,736; 52,027 and 52,028). The IREE arena of 16,384 bytes fails with `OutOfMemory`; the largest failed allocation was 16,824 bytes at that size.
 
+Caveat: "Arena that TFLM reports using" is not a minimum. It changes with the arena size (16-byte alignment of the head and tail, cause not confirmed), and CMSIS-NN reports 6,724 at every size while an arena of 6,724 bytes fails. The smallest working arena is the bisected value.
+
 Reading the numbers (cache on): TFLM reference takes 2.96 times the cycles of IREE. IREE takes 1.77 times the cycles of TFLM with CMSIS-NN. IREE uses 6.8 times the flash of TFLM reference and 7.8 times the smallest arena.
 
 ## What is not equal
@@ -58,6 +61,8 @@ Reading the numbers (cache on): TFLM reference takes 2.96 times the cycles of IR
 - IREE kernels come from LLVM. TFLM kernels come from GCC 10.3.1. The compilers differ, so the comparison includes the compiler.
 - IREE outputs f32 logits. TFLM outputs int8 logits. The check is exact for TFLM and within one step for IREE.
 - There is one input clip ("yes"), one board and one build of each firmware.
+- The IREE timed region is `ctx.invoke`. It includes the IREE call and output handling that the TFLM `invoke` does not have.
+- The IREE bytecode verifier is linked and adds flash (about 95 KB, see "Symbol split" in the kws README).
 - The IREE bytecode and runtime are linked with newlib `printf` and `libm`. The `libc` group of `timing_int8` is 84,438 bytes (84 KB). I did not test why it is this large.
 - TFLM CMSIS-NN does not use SIMD code in the depthwise layer. The model has 1 input channel and a channel multiplier of 8. The wrapper then calls the generic `arm_depthwise_conv_s8`, which is scalar C. Only the fully connected layer uses the DSP code.
 - The TFLM runtime-only share counts `tflite::`, `flatbuffers::` and `tflm_*` symbols that are not kernels. Grouping rules: `../../microbit-v2-kws/scripts/symbol-split.sh`.

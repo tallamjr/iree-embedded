@@ -68,3 +68,37 @@ filter_log() {
   }
   printf '%s\n' "$lines"
 }
+
+# Print the log header lines (each starts with "# ").
+# Usage: log_header <example-dir> <bin> <features>
+# The IREE lines say which runtime library the build links: an explicit
+# IREE_RUNTIME_DIR or IREE_SRC_DIR, the in-repo .iree folder, or the prebuilt
+# download. They need the same environment variables as the build.
+log_header() {
+  local example_dir="$1" bin="$2" features="${3:-}"
+  local tree_state="clean"
+  if [ -n "$(git -C "$example_dir" status --porcelain -- . ':!results')" ]; then
+    tree_state="dirty"
+  fi
+  echo "# date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "# commit: $(git -C "$example_dir" rev-parse HEAD) (tree $tree_state)"
+  echo "# binary: $bin"
+  echo "# features: ${features:-none}"
+  echo "# arm-none-eabi-g++: $(arm-none-eabi-g++ --version | sed -n 1p)"
+  echo "# rustc: $(rustc --version)"
+  echo "# board: BBC micro:bit v2, nRF52833, 64 MHz, chip $BOARD_CHIP"
+  if grep -q '^iree-embedded = ' "$example_dir/Cargo.toml"; then
+    local repo_root
+    repo_root="$(git -C "$example_dir" rev-parse --show-toplevel)"
+    echo "# iree-embedded-sys: $(sed -n 's/^version = "\(.*\)"/\1/p' "$repo_root/crates/iree-embedded-sys/Cargo.toml" | sed -n 1p)"
+    echo "# IREE_RUNTIME_DIR: ${IREE_RUNTIME_DIR:-unset}"
+    echo "# IREE_SRC_DIR: ${IREE_SRC_DIR:-unset}"
+    if [ -n "${IREE_RUNTIME_DIR:-}${IREE_SRC_DIR:-}" ]; then
+      echo "# iree runtime source: environment variables"
+    elif [ -d "$repo_root/.iree/build/mcu" ] && [ -d "$repo_root/.iree/src" ]; then
+      echo "# iree runtime source: in-repo .iree folder"
+    else
+      echo "# iree runtime source: prebuilt download"
+    fi
+  fi
+}
