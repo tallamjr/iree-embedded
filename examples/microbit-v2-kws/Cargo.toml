@@ -22,6 +22,11 @@ name = "timing_int8"
 path = "src/bin/timing_int8.rs"
 required-features = ["int8"]
 
+[[bin]]
+name = "arena_int8"
+path = "src/bin/arena_int8.rs"
+required-features = ["int8"]
+
 [dependencies]
 iree-embedded = { path = "../../crates/iree-embedded" }
 kws-frontend = { path = "kws-frontend" }

@@ -13,11 +13,26 @@ fn main() {
         .unwrap();
     println!("cargo:rustc-link-search={}", out.display());
 
+    emit_arena_bytes();
     link_models(&out);
     link_newlib();
 
     println!("cargo:rerun-if-changed=memory.x");
     println!("cargo:rerun-if-changed=build.rs");
+}
+
+/// Pass the arena size to the crate. `IREE_ARENA_BYTES` sets it at build time;
+/// the default is 56 KiB.
+fn emit_arena_bytes() {
+    println!("cargo:rerun-if-env-changed=IREE_ARENA_BYTES");
+    let arena_bytes = match env::var("IREE_ARENA_BYTES") {
+        Ok(text) => text
+            .parse::<usize>()
+            .unwrap_or_else(|error| panic!("IREE_ARENA_BYTES {text:?}: {error}")),
+        Err(env::VarError::NotPresent) => 56 * 1024,
+        Err(error) => panic!("IREE_ARENA_BYTES: {error}"),
+    };
+    println!("cargo:rustc-env=IREE_ARENA_BYTES_RESOLVED={arena_bytes}");
 }
 
 /// Archive the iree-compile static-library kernel objects (real Cortex-M
