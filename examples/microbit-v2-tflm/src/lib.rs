@@ -12,6 +12,12 @@ pub use ffi::{double_to_i64, frexp, paint_stack, quantize_multiplier, round};
 /// Core clock of the nRF52833 in Hz.
 pub const CORE_CLOCK_HZ: u32 = 64_000_000;
 
+/// True when the build uses the CMSIS-NN kernels instead of the reference kernels.
+pub const CMSIS_NN: bool = cfg!(feature = "cmsis-nn");
+
+/// Name of the kernel set in this build.
+pub const KERNELS: &str = if CMSIS_NN { "cmsis-nn" } else { "reference" };
+
 /// Labels of the four model outputs.
 pub const LABELS: [&str; 4] = ["silence", "unknown", "yes", "no"];
 

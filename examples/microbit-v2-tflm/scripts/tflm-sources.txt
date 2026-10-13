@@ -1,6 +1,6 @@
-# TFLite-Micro files to compile, relative to tflm-tree/. Read by build.rs and
-# scripts/host-check.sh. Only the operators of the micro_speech model are here:
-# reshape, depthwise convolution and fully connected.
+# TFLite-Micro files in both variants, relative to the tree. Read by build.rs
+# and scripts/host-check.sh. The depthwise convolution and fully connected
+# kernels are in tflm-kernels-reference.txt or tflm-kernels-cmsis-nn.txt.
 tensorflow/lite/micro/arena_allocator/non_persistent_arena_buffer_allocator.cc
 tensorflow/lite/micro/arena_allocator/persistent_arena_buffer_allocator.cc
 tensorflow/lite/micro/arena_allocator/single_arena_buffer_allocator.cc
@@ -24,9 +24,7 @@ tensorflow/lite/micro/kernels/kernel_util.cc
 tensorflow/lite/micro/kernels/reshape.cc
 tensorflow/lite/micro/kernels/reshape_common.cc
 tensorflow/lite/micro/kernels/conv_common.cc
-tensorflow/lite/micro/kernels/depthwise_conv.cc
 tensorflow/lite/micro/kernels/depthwise_conv_common.cc
-tensorflow/lite/micro/kernels/fully_connected.cc
 tensorflow/lite/micro/kernels/fully_connected_common.cc
 tensorflow/lite/micro/kernels/internal/common.cc
 tensorflow/lite/micro/kernels/internal/portable_tensor_utils.cc

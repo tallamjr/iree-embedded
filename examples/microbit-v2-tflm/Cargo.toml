@@ -9,7 +9,17 @@ name = "microbit-v2-tflm"
 version = "0.1.0"
 edition = "2024"
 publish = false
-description = "micro:bit v2 timing firmware for the TFLite-Micro baseline (reference kernels)."
+description = "micro:bit v2 timing firmware for the TFLite-Micro baseline (reference and CMSIS-NN kernels)."
+
+[features]
+# Use the CMSIS-NN kernels instead of the reference kernels.
+cmsis-nn = []
+
+# Same source as timing_tflm; the cmsis-nn feature picks the kernels.
+[[bin]]
+name = "timing_tflm_cmsis"
+path = "src/bin/timing_tflm_cmsis.rs"
+required-features = ["cmsis-nn"]
 
 [dependencies]
 cycle-stats = { path = "cycle-stats" }

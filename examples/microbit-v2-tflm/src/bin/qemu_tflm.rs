@@ -12,8 +12,8 @@ use defmt_rtt as _;
 // Links the nRF interrupt vector table that cortex-m-rt asks for.
 use embassy_nrf as _;
 use microbit_v2_tflm::{
-    Aligned, EXPECTED_LOGITS, Interpreter, MODEL, double_to_i64, features, frexp, paint_stack,
-    quantize_multiplier, round,
+    Aligned, EXPECTED_LOGITS, Interpreter, KERNELS, MODEL, double_to_i64, features, frexp,
+    paint_stack, quantize_multiplier, round,
 };
 use panic_probe as _;
 use static_cell::StaticCell;
@@ -25,6 +25,7 @@ fn main() -> ! {
     static ARENA: StaticCell<Aligned<[u8; ARENA_BYTES]>> = StaticCell::new();
     let arena = ARENA.init(Aligned([0xA5; ARENA_BYTES]));
 
+    hprintln!("kernels {}", KERNELS);
     paint_stack(0xA5, 8192);
     for real in [0.5f64, 0.0123f64, 1.0e-5f64] {
         let (multiplier, shift) = quantize_multiplier(real);

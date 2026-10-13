@@ -1,3 +1,4 @@
 # Made by scripts/fetch-tflm.sh.
 /tflm-src/
 /tflm-tree/
+/tflm-tree-cmsis-nn/

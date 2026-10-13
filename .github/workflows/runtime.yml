@@ -179,11 +179,14 @@ jobs:
       - name: Fetch TFLite-Micro
         run: examples/microbit-v2-tflm/scripts/fetch-tflm.sh
       - name: Shim test on the host
-        run: examples/microbit-v2-tflm/scripts/host-check.sh
+        run: |
+          examples/microbit-v2-tflm/scripts/host-check.sh
+          examples/microbit-v2-tflm/scripts/host-check.sh cmsis-nn
       - name: Build the firmware
         run: |
           cd examples/microbit-v2-tflm
           cargo build --release
+          cargo build --release --features cmsis-nn --bin timing_tflm_cmsis
 
   # Tagged builds publish the artefacts as a GitHub release.
   release:
