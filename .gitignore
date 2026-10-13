@@ -760,3 +760,6 @@ dkms.conf
 # Transient host bindings (regenerated each build; only the MCU variant is committed)
 crates/iree-embedded-sys/generated/bindings_host.rs
 crates/iree-embedded-sys/generated/extern_host.c
+
+# Board run logs are test evidence.
+!examples/*/results/*.log

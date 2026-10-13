@@ -1,0 +1,76 @@
+# date_utc: 2026-10-13T14:11:14Z
+# commit: 5ece9b25b2301221273304aef66295efd58328ac
+# binary: arena_tflm, features: cmsis-nn, variable: TFLM_ARENA_BYTES
+# arm-none-eabi-g++: arm-none-eabi-g++ (GNU Arm Embedded Toolchain 10.3-2021.10) 10.3.1 20210824 (release)
+# rustc: rustc 1.98.0-nightly (54333ff07 2026-05-22)
+## arena 4096
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 4096 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[ERROR] failed: Allocate (arena_tflm src/bin/arena_tflm.rs:34)
+## arena 16384
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 16384 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[INFO ] arena used by TFLite-Micro: 6724 bytes (arena_tflm src/bin/arena_tflm.rs:43)
+[INFO ] logits [-50, -4, 121, -4] (reference [-50, -4, 121, -4]), equal: true (arena_tflm src/bin/arena_tflm.rs:28)
+## arena 10240
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 10240 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[INFO ] arena used by TFLite-Micro: 6724 bytes (arena_tflm src/bin/arena_tflm.rs:43)
+[INFO ] logits [-50, -4, 121, -4] (reference [-50, -4, 121, -4]), equal: true (arena_tflm src/bin/arena_tflm.rs:28)
+## arena 7168
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 7168 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[INFO ] arena used by TFLite-Micro: 6724 bytes (arena_tflm src/bin/arena_tflm.rs:43)
+[INFO ] logits [-50, -4, 121, -4] (reference [-50, -4, 121, -4]), equal: true (arena_tflm src/bin/arena_tflm.rs:28)
+## arena 5632
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 5632 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[ERROR] failed: Allocate (arena_tflm src/bin/arena_tflm.rs:34)
+## arena 6400
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 6400 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[ERROR] failed: Allocate (arena_tflm src/bin/arena_tflm.rs:34)
+## arena 6784
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 6784 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[INFO ] arena used by TFLite-Micro: 6724 bytes (arena_tflm src/bin/arena_tflm.rs:43)
+[INFO ] logits [-50, -4, 121, -4] (reference [-50, -4, 121, -4]), equal: true (arena_tflm src/bin/arena_tflm.rs:28)
+## arena 6592
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 6592 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[ERROR] failed: Allocate (arena_tflm src/bin/arena_tflm.rs:34)
+## arena 6688
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 6688 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[ERROR] failed: Allocate (arena_tflm src/bin/arena_tflm.rs:34)
+## arena 6736
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 6736 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[INFO ] arena used by TFLite-Micro: 6724 bytes (arena_tflm src/bin/arena_tflm.rs:43)
+[INFO ] logits [-50, -4, 121, -4] (reference [-50, -4, 121, -4]), equal: true (arena_tflm src/bin/arena_tflm.rs:28)
+## arena 6712
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 6712 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[ERROR] failed: Allocate (arena_tflm src/bin/arena_tflm.rs:34)
+## arena 6724
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 6724 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[ERROR] failed: Allocate (arena_tflm src/bin/arena_tflm.rs:34)
+## arena 6730
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 6730 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[ERROR] failed: Allocate (arena_tflm src/bin/arena_tflm.rs:34)
+## arena 6733
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 6733 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[ERROR] failed: Allocate (arena_tflm src/bin/arena_tflm.rs:34)
+## arena 6734
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 6734 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[ERROR] failed: Allocate (arena_tflm src/bin/arena_tflm.rs:34)
+## arena 6735
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, cmsis-nn kernels, arena 6735 bytes (arena_tflm src/bin/arena_tflm.rs:21)
+[ERROR] failed: Allocate (arena_tflm src/bin/arena_tflm.rs:34)
+## result
+smallest passing arena: 6736 bytes (6735 bytes fails)

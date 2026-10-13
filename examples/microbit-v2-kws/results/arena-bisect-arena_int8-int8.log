@@ -1,0 +1,79 @@
+# date_utc: 2026-10-13T14:35:01Z
+# commit: 5ece9b25b2301221273304aef66295efd58328ac
+# binary: arena_int8, features: int8, variable: IREE_ARENA_BYTES
+# arm-none-eabi-g++: arm-none-eabi-g++ (GNU Arm Embedded Toolchain 10.3-2021.10) 10.3.1 20210824 (release)
+# rustc: rustc 1.98.0-nightly (54333ff07 2026-05-22)
+## arena 16384
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 16384 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[ERROR] failed: OutOfMemory (raw 8): RESOURCE_EXHAUSTED | largest failed alloc = 16824 bytes (arena_int8 src/bin/arena_int8.rs:34)
+## arena 57344
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 57344 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[INFO ] classified: yes, logits [-5.870843, -1.6511745, 9.815315, -1.6511745] (reference [-5.8708, -1.6512, 9.8153, -1.6512]), within one step: true (arena_int8 src/bin/arena_int8.rs:27)
+## arena 36864
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 36864 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[ERROR] failed: OutOfMemory (raw 8): RESOURCE_EXHAUSTED | largest failed alloc = 18732 bytes (arena_int8 src/bin/arena_int8.rs:34)
+## arena 47104
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 47104 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[ERROR] failed: OutOfMemory (raw 8): RESOURCE_EXHAUSTED | largest failed alloc = 18732 bytes (arena_int8 src/bin/arena_int8.rs:34)
+## arena 52224
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 52224 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[INFO ] classified: yes, logits [-5.870843, -1.6511745, 9.815315, -1.6511745] (reference [-5.8708, -1.6512, 9.8153, -1.6512]), within one step: true (arena_int8 src/bin/arena_int8.rs:27)
+## arena 49664
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 49664 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[ERROR] failed: OutOfMemory (raw 8): RESOURCE_EXHAUSTED | largest failed alloc = 18732 bytes (arena_int8 src/bin/arena_int8.rs:34)
+## arena 50944
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 50944 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[ERROR] failed: OutOfMemory (raw 8): RESOURCE_EXHAUSTED | largest failed alloc = 18732 bytes (arena_int8 src/bin/arena_int8.rs:34)
+## arena 51584
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 51584 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[ERROR] failed: OutOfMemory (raw 8): RESOURCE_EXHAUSTED | largest failed alloc = 18732 bytes (arena_int8 src/bin/arena_int8.rs:34)
+## arena 51904
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 51904 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[ERROR] failed: OutOfMemory (raw 8): RESOURCE_EXHAUSTED | largest failed alloc = 128 bytes (arena_int8 src/bin/arena_int8.rs:34)
+## arena 52064
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 52064 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[INFO ] classified: yes, logits [-5.870843, -1.6511745, 9.815315, -1.6511745] (reference [-5.8708, -1.6512, 9.8153, -1.6512]), within one step: true (arena_int8 src/bin/arena_int8.rs:27)
+## arena 51984
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 51984 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[ERROR] failed: OutOfMemory (raw 8): RESOURCE_EXHAUSTED | largest failed alloc = 128 bytes (arena_int8 src/bin/arena_int8.rs:34)
+## arena 52024
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 52024 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[ERROR] failed: OutOfMemory (raw 8): RESOURCE_EXHAUSTED | largest failed alloc = 128 bytes (arena_int8 src/bin/arena_int8.rs:34)
+## arena 52044
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 52044 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[INFO ] classified: yes, logits [-5.870843, -1.6511745, 9.815315, -1.6511745] (reference [-5.8708, -1.6512, 9.8153, -1.6512]), within one step: true (arena_int8 src/bin/arena_int8.rs:27)
+## arena 52034
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 52034 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[INFO ] classified: yes, logits [-5.870843, -1.6511745, 9.815315, -1.6511745] (reference [-5.8708, -1.6512, 9.8153, -1.6512]), within one step: true (arena_int8 src/bin/arena_int8.rs:27)
+## arena 52029
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 52029 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[INFO ] classified: yes, logits [-5.870843, -1.6511745, 9.815315, -1.6511745] (reference [-5.8708, -1.6512, 9.8153, -1.6512]), within one step: true (arena_int8 src/bin/arena_int8.rs:27)
+## arena 52026
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 52026 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[ERROR] failed: OutOfMemory (raw 8): RESOURCE_EXHAUSTED | largest failed alloc = 128 bytes (arena_int8 src/bin/arena_int8.rs:34)
+## arena 52027
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 52027 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[ERROR] failed: OutOfMemory (raw 8): RESOURCE_EXHAUSTED | largest failed alloc = 128 bytes (arena_int8 src/bin/arena_int8.rs:34)
+## arena 52028
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] arena check, IREE int8, arena 52028 bytes (arena_int8 src/bin/arena_int8.rs:23)
+[INFO ] classified: yes, logits [-5.870843, -1.6511745, 9.815315, -1.6511745] (reference [-5.8708, -1.6512, 9.8153, -1.6512]), within one step: true (arena_int8 src/bin/arena_int8.rs:27)
+## result
+smallest passing arena: 52028 bytes (52027 bytes fails)

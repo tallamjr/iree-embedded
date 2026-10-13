@@ -1,0 +1,18 @@
+# date_utc: 2026-10-13T14:58:30Z
+# commit: 7db74e333b7a16e7a2c3e702115322e68274ce58 (tree clean)
+# binary: timing_tflm_cmsis
+# features: cmsis-nn
+# arm-none-eabi-g++: arm-none-eabi-g++ (GNU Arm Embedded Toolchain 10.3-2021.10) 10.3.1 20210824 (release)
+# rustc: rustc 1.98.0-nightly (54333ff07 2026-05-22)
+# board: BBC micro:bit v2, nRF52833, 64 MHz, chip nRF52833_xxAA
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] TFLite-Micro int8 timing, cmsis-nn kernels: 1000 timed invokes (timing_tflm_cmsis bin/../timing_main.rs:45)
+[INFO ] arena used by TFLite-Micro: 6724 of 16384 bytes (timing_tflm_cmsis bin/../timing_main.rs:87)
+[INFO ] instruction cache off: last invoke classified: yes (expected 'yes') (timing_tflm_cmsis bin/../timing_main.rs:111)
+[INFO ] logits [-50, -4, 121, -4] (reference [-50, -4, 121, -4]), equal: true (timing_tflm_cmsis bin/../timing_main.rs:116)
+[INFO ] cycles: min 4398523 median 4398523 p99 4398523 max 4398523 (timing_tflm_cmsis bin/../timing_main.rs:124)
+[INFO ] microseconds at 64000000 Hz: min 68726 median 68726 p99 68726 max 68726 (timing_tflm_cmsis bin/../timing_main.rs:131)
+[INFO ] instruction cache on: last invoke classified: yes (expected 'yes') (timing_tflm_cmsis bin/../timing_main.rs:111)
+[INFO ] logits [-50, -4, 121, -4] (reference [-50, -4, 121, -4]), equal: true (timing_tflm_cmsis bin/../timing_main.rs:116)
+[INFO ] cycles: min 3515389 median 3515389 p99 3515389 max 3515389 (timing_tflm_cmsis bin/../timing_main.rs:124)
+[INFO ] microseconds at 64000000 Hz: min 54927 median 54927 p99 54927 max 54927 (timing_tflm_cmsis bin/../timing_main.rs:131)
