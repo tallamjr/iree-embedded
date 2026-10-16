@@ -37,8 +37,10 @@ set(IREE_SYNCHRONIZATION_DISABLE_UNSAFE ON CACHE BOOL "" FORCE)
 set(IREE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(IREE_BUILD_COMPILER OFF CACHE BOOL "" FORCE)
 
+# One section per function lets the linker drop unused IREE code and the libc it calls.
 set(ARM_CM_FLAGS "\
     -mcpu=cortex-m7 -mthumb -mfloat-abi=hard -mfpu=fpv5-d16 -fno-pic -fno-pie \
+    -ffunction-sections -fdata-sections \
     -include ${CMAKE_CURRENT_LIST_DIR}/iree_bm_config.h")
 
 set(CMAKE_C_FLAGS   "${ARM_CM_FLAGS} ${CMAKE_C_FLAGS}")
