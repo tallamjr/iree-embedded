@@ -4,6 +4,8 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+pub mod report;
+
 /// Summary of a set of cycle counts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CycleStats {
