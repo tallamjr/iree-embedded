@@ -43,6 +43,13 @@ fi
 # test -e filters it; nothing here can fail under set -euo pipefail.
 find_port() {
   local p
+  # BOARD_PORT selects the port when several boards are plugged in.
+  if [ -n "${BOARD_PORT:-}" ]; then
+    if [ -e "$BOARD_PORT" ]; then
+      printf '%s\n' "$BOARD_PORT"
+    fi
+    return 0
+  fi
   if [ "$(uname -s)" = "Darwin" ]; then
     for p in /dev/cu.usbmodem*; do
       if [ -e "$p" ]; then

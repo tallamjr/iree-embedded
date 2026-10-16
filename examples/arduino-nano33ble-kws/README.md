@@ -145,8 +145,8 @@ has run the timing firmware (see its README).
 
 The Nano has no debug probe, so `timing_usb` prints the result over USB serial.
 It is the same measurement as `timing`. The code is shared in `run_timing`
-(`src/lib.rs`). The USB stack starts only after the timed loops end, so USB
-interrupts cannot change the cycle counts. The firmware keeps the result text
+(`src/lib.rs`). The timed loops run before the HAL starts. The time driver and the USB stack
+start only after the loops end, so no interrupt can fall inside the loops. The firmware keeps the result text
 in RAM. It prints the text every second while a host has the port open, so
 a port opened late still gets the result.
 
@@ -156,9 +156,9 @@ release ELF files:
 | Binary       | text (flash) | data | bss (RAM) |
 | ------------ | -----------: | ---: | --------: |
 | `timing`     |      430,368 |  2,852 |    77,620 |
-| `timing_usb` |      461,256 |  2,900 |    80,564 |
+| `timing_usb` |      461,384 |  2,900 |    80,564 |
 
-The USB build adds 30,888 bytes of flash and 2,992 bytes of RAM. The 56 KB arena is
+The USB build adds 31,016 bytes of flash and 2,992 bytes of RAM. The 56 KB arena is
 the same size as in `timing`. Both fit: 461 KB of 960 KB flash, 83 KB of 256 KB RAM.
 
 Run it with the board in bootloader mode (double-tap reset):
@@ -174,6 +174,14 @@ The script builds `timing_usb` with `--features usb-serial` and flashes it with
 port appears only after it ends. A valid log goes to
 `results/timing_usb-run1.log`. An invalid log stays as
 `results/timing_usb-run1.log.invalid`. The script stops if either file exists.
+
+The script picks the serial port itself. If more than one board port exists,
+set `BOARD_PORT` to the bootloader port of the Nano (for example
+`BOARD_PORT=/dev/cu.usbmodem1101 scripts/board-run.sh 1`), or the script
+stops and lists the ports. After flashing, the script waits for the bootloader
+port to go away. Then it waits for a port that was not there before, apart
+from the bootloader port. That port is the firmware. Ports of other boards
+are ignored. It stops if two new ports appear.
 
 The log starts with `# ` header lines: UTC date, commit and tree state,
 binary, features, compiler versions, board and serial port. Then come nine
@@ -210,7 +218,8 @@ Limits:
   reboot into the bootloader on the 1200 baud touch. Double-tap reset before
   each flash.
 - The USB build uses the external crystal as HFCLK and the RTC1 time driver.
-  The RTC1 time driver can raise a short interrupt during the timed loops. That can raise the max value.
+  Both start after the loops. The loops run on the internal oscillator, as in
+  `timing`.
 - Use `timing_usb` as the Nano source for
   https://github.com/tallamjr/iree-embedded/issues/12. Commit the logs only
   after a real run.
