@@ -135,10 +135,85 @@ cargo run --release --bin timing
 
 The `flash.sh` runner flashes the timing firmware. The solid orange LED means the
 run is done. The results go out over RTT, so you need a probe to read them
-(see "Logs" below). A fast orange blink means an error.
+(see "Logs" below). Without a probe, use `timing_usb` (see the next section).
+A fast orange blink means an error.
 
-The timing numbers are not yet measured on this board. Only the micro:bit v2
+The timing numbers are not yet measured on this board. The USB serial route is untested on hardware. Only the micro:bit v2
 has run the timing firmware (see its README).
+
+## Read the timing result over USB serial
+
+The Nano has no debug probe, so `timing_usb` prints the result over USB serial.
+It is the same measurement as `timing`. The code is shared in `run_timing`
+(`src/lib.rs`). The USB stack starts only after the timed loops end, so USB
+interrupts cannot change the cycle counts. The firmware keeps the result text
+in RAM. It prints the text every second while a host has the port open, so
+a port opened late still gets the result.
+
+The extra cost of the USB build, measured with `arm-none-eabi-size` on the
+release ELF files:
+
+| Binary       | text (flash) | data | bss (RAM) |
+| ------------ | -----------: | ---: | --------: |
+| `timing`     |      430,368 |  2,852 |    77,620 |
+| `timing_usb` |      461,256 |  2,900 |    80,564 |
+
+The USB build adds 30,888 bytes of flash and 2,992 bytes of RAM. The 56 KB arena is
+the same size as in `timing`. Both fit: 461 KB of 960 KB flash, 83 KB of 256 KB RAM.
+
+Run it with the board in bootloader mode (double-tap reset):
+
+```sh
+scripts/board-run.sh 1
+```
+
+The script builds `timing_usb` with `--features usb-serial` and flashes it with
+`bossac`. It waits for the serial port, reads it with a time limit
+(`BOARD_RUN_LIMIT_SECONDS`, default 900), and checks the result with
+`scripts/validate-log.sh`. The timed run takes about four minutes, and the
+port appears only after it ends. A valid log goes to
+`results/timing_usb-run1.log`. An invalid log stays as
+`results/timing_usb-run1.log.invalid`. The script stops if either file exists.
+
+The log starts with `# ` header lines: UTC date, commit and tree state,
+binary, features, compiler versions, board and serial port. Then come nine
+lines of text from the firmware:
+
+```text
+iree-embedded KWS timing: 1000 timed invokes
+instruction cache off: last invoke classified: yes (expected 'yes')
+logits [a, b, c, d]
+cycles: min .. median .. p99 .. max ..
+microseconds at 64000000 Hz: min .. median .. p99 .. max ..
+instruction cache on: ... (the same four lines again)
+```
+
+The validator fails when the label is not `yes`, when the third logit is not
+the largest, when a cycle line is missing or out of order, or when the
+firmware prints an error. The check on the logits is a label check. The
+repository has no reference logit values for the float model.
+
+Test the validator on the host with `scripts/test-validate-log.sh`. It builds
+a good log from the real micro:bit v2 log
+`../microbit-v2-kws/results/timing_int8-run1.log` and breaks it in nine ways
+(test names start with `synthetic_`). Test the text formatter with
+`cargo test -p cycle-stats --target aarch64-apple-darwin`.
+
+Limits:
+
+- This path has not run on a Nano. No Nano was attached when it was written
+  (see https://github.com/tallamjr/iree-embedded/issues/18). The USB code
+  builds, but its behaviour on the chip is untested.
+- QEMU has no model of the nRF52840 USB device, so the USB path cannot run
+  without a board.
+- Once `timing_usb` runs, the board is a USB serial device. It does not
+  reboot into the bootloader on the 1200 baud touch. Double-tap reset before
+  each flash.
+- The USB build uses the external crystal as HFCLK and the RTC1 time driver.
+  The RTC1 time driver can raise a short interrupt during the timed loops. That can raise the max value.
+- Use `timing_usb` as the Nano source for
+  https://github.com/tallamjr/iree-embedded/issues/12. Commit the logs only
+  after a real run.
 
 ## Logs (optional)
 
