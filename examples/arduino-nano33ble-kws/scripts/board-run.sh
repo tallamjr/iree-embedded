@@ -36,9 +36,9 @@ for tool in cargo jq arm-none-eabi-gcc stty; do
   fi
 done
 
-# Print the first serial port, or nothing. macOS names ports
+# Print every board serial port, one per line. macOS names ports
 # /dev/cu.usbmodem*; Linux names them /dev/ttyACM*.
-find_port() {
+list_ports() {
   local pattern port
   if [ "$(uname -s)" = "Darwin" ]; then
     pattern="/dev/cu.usbmodem*"
@@ -48,10 +48,13 @@ find_port() {
   for port in $pattern; do
     if [ -e "$port" ]; then
       printf '%s\n' "$port"
-      return 0
     fi
   done
-  return 0
+}
+
+# Count the non-empty lines of a text.
+count_lines() {
+  awk 'NF { n++ } END { print n + 0 }' <<< "$1"
 }
 
 # Make a port raw so that line endings and echo do not change the text.
@@ -88,12 +91,35 @@ if [ -z "$elf" ] || [ ! -f "$elf" ]; then
   exit 1
 fi
 
-"$here/flash.sh" "$elf"
+# BOARD_PORT names the Nano's bootloader port. Without it, exactly one board
+# port may be present.
+ports_before="$(list_ports)"
+if [ -z "${BOARD_PORT:-}" ] && [ "$(count_lines "$ports_before")" -gt 1 ]; then
+  echo "ERROR: several serial ports found; set BOARD_PORT to the Nano's port:" >&2
+  echo "$ports_before" >&2
+  exit 1
+fi
+export BOARD_PORT
 
-# The board resets after flashing. The bootloader port goes away, and the
-# firmware port appears when the timed run ends.
-sleep 5
+flash_output="$("$here/flash.sh" "$elf" | tee /dev/stderr)"
+bootloader_port="$(sed -n 's/^== flashing via \(.*\) ==$/\1/p' <<< "$flash_output")"
+if [ -z "$bootloader_port" ]; then
+  echo "ERROR: flash.sh did not report the port it used" >&2
+  exit 1
+fi
+
+# The bootloader port goes away when the board resets into the firmware. The
+# firmware port appears only when the timed run ends. It is the first port
+# that was not there before flashing, apart from the bootloader port itself.
 deadline=$((SECONDS + limit))
+while [ -e "$bootloader_port" ]; do
+  if [ "$SECONDS" -ge "$deadline" ]; then
+    echo "ERROR: bootloader port $bootloader_port did not go away within $limit s" >&2
+    exit 1
+  fi
+  sleep 1
+done
+other_ports="$(awk -v skip="$bootloader_port" '$0 != skip' <<< "$ports_before")"
 port=""
 while [ -z "$port" ]; do
   if [ "$SECONDS" -ge "$deadline" ]; then
@@ -101,7 +127,13 @@ while [ -z "$port" ]; do
     exit 1
   fi
   sleep 2
-  port="$(find_port)"
+  new_ports="$(list_ports | awk -v known="$other_ports" 'BEGIN { n = split(known, a, "\n"); for (i = 1; i <= n; i++) seen[a[i]] = 1 } !($0 in seen)')"
+  if [ "$(count_lines "$new_ports")" -gt 1 ]; then
+    echo "ERROR: several new serial ports appeared; unplug other boards:" >&2
+    echo "$new_ports" >&2
+    exit 1
+  fi
+  port="$new_ports"
 done
 echo "== serial port $port appeared; reading =="
 
