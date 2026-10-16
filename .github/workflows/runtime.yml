@@ -92,6 +92,11 @@ jobs:
           .venv/bin/pip install "iree-base-compiler==$IREE_PIP_VERSION" "iree-base-runtime==$IREE_PIP_VERSION"
       - name: Cross-build runtime
         run: scripts/build-runtime-mcu.sh ${{ matrix.target }}
+      - name: Check one section per function
+        run: |
+          BUILD=.iree/build/mcu
+          [ "${{ matrix.target }}" = "cortex-m4f" ] || BUILD=.iree/build/${{ matrix.target }}
+          scripts/test-runtime-sections.sh "$BUILD"
       - name: Package artefact
         run: |
           BUILD=.iree/build/mcu
