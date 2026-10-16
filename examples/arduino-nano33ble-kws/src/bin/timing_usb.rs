@@ -1,6 +1,7 @@
 //! Timing firmware with USB serial output, for a Nano without a debug probe.
 //!
-//! The timed loops are the same code as `timing`. The USB stack starts only
+//! The timed loops are the same code as `timing`. They run before the HAL
+//! starts, and the USB stack and time driver start only
 //! after they end, so USB interrupts cannot disturb the cycle counts. The
 //! result text waits in RAM. When the host opens the port (DTR set), the
 //! firmware prints the text every second until the host closes the port.
@@ -12,11 +13,11 @@
 use core::fmt::Write;
 use core::sync::atomic::Ordering;
 
-use arduino_nano33ble_kws::{CORE_CLOCK_HZ, TIMED_INVOKES, fatal_blink, run_timing};
+use arduino_nano33ble_kws::{CORE_CLOCK_HZ, TIMED_INVOKES, run_timing};
 use cycle_stats::report::{TextBuffer, write_cache_run, write_header};
 use defmt_rtt as _;
 use embassy_executor::Spawner;
-use embassy_futures::join::join;
+use embassy_futures::join::join3;
 use embassy_futures::select::select;
 use embassy_nrf::config::{Config, HfclkSource};
 use embassy_nrf::gpio::{Level, Output, OutputDrive};
@@ -50,23 +51,16 @@ type UsbDriver = Driver<'static, HardwareVbusDetect>;
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
-    let mut config = Config::default();
-    // The USB peripheral needs the external 32 MHz crystal as HFCLK.
-    config.hfclk_source = HfclkSource::ExternalXtal;
-    let p = embassy_nrf::init(config);
-    defmt::info!("iree-embedded KWS timing: {} timed invokes", TIMED_INVOKES);
-
     let cp = cortex_m::Peripherals::take().unwrap();
     let mut dcb = cp.DCB;
     let mut dwt = cp.DWT;
     dcb.enable_trace();
     dwt.enable_cycle_counter();
 
+    defmt::info!("iree-embedded KWS timing: {} timed invokes", TIMED_INVOKES);
     let arena = Arena::new(singleton!([u8; 56 * 1024] = [0; 56 * 1024]));
     let fe = singleton!(Frontend = Frontend::new());
     let cycles = singleton!([u32; TIMED_INVOKES] = [0; TIMED_INVOKES]);
-    let mut status = Output::new(p.P0_13, Level::Low, OutputDrive::Standard);
-
     let mut text = TextBuffer::<RESULT_TEXT_BYTES>::new();
     match run_timing(&arena, fe, cycles) {
         Ok(runs) => {
@@ -79,8 +73,6 @@ async fn main(_spawner: Spawner) {
                 "timing done; result text is {} bytes",
                 text.as_bytes().len()
             );
-            // Solid orange LED: the run finished and USB serial is next.
-            status.set_high();
         }
         Err(e) => {
             writeln!(
@@ -96,6 +88,13 @@ async fn main(_spawner: Spawner) {
         }
     }
     let failed = text.as_bytes().starts_with(b"ERROR");
+
+    // The time driver and USB start only now, so no interrupt hits the timed loops.
+    let mut config = Config::default();
+    // The USB peripheral needs the external 32 MHz crystal as HFCLK.
+    config.hfclk_source = HfclkSource::ExternalXtal;
+    let p = embassy_nrf::init(config);
+    let mut status = Output::new(p.P0_13, Level::Low, OutputDrive::Standard);
 
     let driver = Driver::new(p.USBD, Irqs, HardwareVbusDetect::new(Irqs));
     let mut usb_config = embassy_usb::Config::new(USB_VENDOR_ID, USB_PRODUCT_ID);
@@ -121,13 +120,23 @@ async fn main(_spawner: Spawner) {
     let usb_device = builder.build();
     let (mut sender, _receiver, control) = class.split_with_control();
 
-    join(
+    join3(
         run_usb(usb_device),
         print_when_open(&mut sender, &control, text.as_bytes()),
+        show_status(status, failed),
     )
     .await;
-    if failed {
-        fatal_blink(&mut status);
+}
+
+/// Solid orange LED: the run finished. Fast blink: the run failed.
+async fn show_status(mut status: Output<'static>, failed: bool) -> ! {
+    if !failed {
+        status.set_high();
+        core::future::pending().await
+    }
+    loop {
+        status.toggle();
+        Timer::after_millis(100).await;
     }
 }
 
