@@ -117,3 +117,10 @@ pub fn paint_stack(pattern: u8, bytes: u32) {
     // SAFETY: the C++ function writes only to its own local array.
     unsafe { diag_paint_stack(pattern, bytes) }
 }
+
+/// Newer newlib builds link `malloc`, which needs `_sbrk`. TFLite-Micro
+/// allocates from the arena only, so the libc heap must never grow.
+#[unsafe(no_mangle)]
+pub extern "C" fn _sbrk(_increment: isize) -> *mut core::ffi::c_void {
+    -1isize as *mut core::ffi::c_void
+}
