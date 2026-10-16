@@ -3,9 +3,14 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+use cortex_m::peripheral::DWT;
+use cycle_stats::report::CacheRun;
+use cycle_stats::summarise;
 use embassy_nrf::gpio::Output;
-use iree_embedded::{Arena, Context, Device, Function, Result, Tensor, include_vmfb};
-use kws_frontend::FEATURE_BYTES;
+use iree_embedded::{
+    Arena, Context, Device, Function, Instance, Result, Tensor, include_vmfb, link_kernels,
+};
+use kws_frontend::{FEATURE_BYTES, Frontend};
 
 // The keyword-spotting model (TFLite-Micro micro_speech, softmax stripped).
 // Same artefact as the micro:bit example: both boards are Cortex-M4F, so the
@@ -63,4 +68,64 @@ pub fn classify(
     let mut logits = [0.0f32; 4];
     outputs[0].read_into_f32(device, &mut logits)?;
     Ok((best_label(&logits), logits))
+}
+
+pub const WARMUP_INVOKES: usize = 10;
+pub const TIMED_INVOKES: usize = 1000;
+
+/// Time the model with the instruction cache off, then on. The audio front
+/// end runs once, before the loops. Nothing prints during the loops.
+pub fn run_timing(
+    arena: &Arena,
+    fe: &mut Frontend,
+    cycles: &mut [u32; TIMED_INVOKES],
+) -> Result<[CacheRun<'static>; 2]> {
+    fe.init();
+    let instance = Instance::new(arena)?;
+    let device = Device::local_sync_static(
+        arena,
+        &[link_kernels!(micro_speech_nosm_linked_library_query)],
+    )?;
+    let ctx = Context::new(&instance, &device, VMFB, arena)?;
+    let infer = ctx.resolve("module.tf2onnx")?;
+
+    // Features are computed once, so the loop times the model alone.
+    let mut features = [0u8; FEATURE_BYTES];
+    fe.features_oneshot(self_test_clip(), &mut features);
+    let input = Tensor::from_u8(&device, &[1, 49, 40, 1], &features)?;
+
+    // The instruction cache is off at reset. Cycle counts with it off change
+    // by about 10% between builds, so both settings are reported.
+    let cache_off = time_invokes(&ctx, &device, infer, &input, arena, cycles, false)?;
+    let cache_on = time_invokes(&ctx, &device, infer, &input, arena, cycles, true)?;
+    Ok([cache_off, cache_on])
+}
+
+fn time_invokes(
+    ctx: &Context,
+    device: &Device,
+    infer: Function,
+    input: &Tensor,
+    arena: &Arena,
+    cycles: &mut [u32; TIMED_INVOKES],
+    cache_on: bool,
+) -> Result<CacheRun<'static>> {
+    nrf_pac::NVMC.icachecnf().write(|w| w.set_cacheen(cache_on));
+    for _ in 0..WARMUP_INVOKES {
+        ctx.invoke(infer, &[input], arena)?;
+    }
+
+    let mut logits = [0.0f32; 4];
+    for slot in cycles.iter_mut() {
+        let start = DWT::cycle_count();
+        let outputs = ctx.invoke(infer, &[input], arena)?;
+        *slot = DWT::cycle_count().wrapping_sub(start);
+        outputs[0].read_into_f32(device, &mut logits)?;
+    }
+    Ok(CacheRun {
+        cache_on,
+        label: best_label(&logits),
+        logits,
+        stats: summarise(cycles).expect("TIMED_INVOKES is above zero"),
+    })
 }
