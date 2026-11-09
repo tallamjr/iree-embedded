@@ -1,0 +1,30 @@
+# timing_int8 with the prebuilt v0.1.2 runtime (default arena 57,344 B)
+# Source: size-report.sh and symbol-split.sh run on the release ELF built from commit 4ad21f9
+
+### timing_int8
+
+| Item | Bytes | Share of nRF52833 |
+|---|---:|---:|
+| .text | 200412 | |
+| .rodata | 57480 | |
+| .data | 2452 | |
+| .bss | 62068 | |
+| Flash total (.text + .rodata + .data) | 260344 | 49.7% of 512 KB |
+| .uninit | 1024 | |
+| Static RAM (.data + .bss + .uninit) | 65544 | 50.0% of 128 KB |
+
+
+### timing_int8 symbol split
+
+| Group | Flash bytes | Flash share | Static RAM bytes |
+|---|---:|---:|---:|
+| runtime | 140548 | 54.0% | 116 |
+| model kernels | 3756 | 1.4% | 240 |
+| model data | 23744 | 9.1% | 0 |
+| hal | 1212 | 0.5% | 1478 |
+| rust | 12774 | 4.9% | 61370 |
+| libc | 50705 | 19.5% | 2229 |
+| not covered by symbols | 27605 | 10.6% | 111 |
+| total (size -A) | 260344 | 100.0% | 65544 |
+
+Runtime-only share of flash: 54.0% (140548 of 260344 bytes).

@@ -1,0 +1,21 @@
+# date_utc: 2026-11-09T21:56:21Z
+# commit: d1cfbaae07c7e6855d43efcd068a911b44d6cc14 (tree clean)
+# binary: timing_int8
+# features: int8
+# arm-none-eabi-g++: arm-none-eabi-g++ (GNU Arm Embedded Toolchain 10.3-2021.10) 10.3.1 20210824 (release)
+# rustc: rustc 1.98.0-nightly (54333ff07 2026-05-22)
+# board: BBC micro:bit v2, nRF52833, 64 MHz, chip nRF52833_xxAA
+# iree-embedded-sys: 0.1.2
+# IREE_RUNTIME_DIR: unset
+# IREE_SRC_DIR: unset
+# iree runtime source: prebuilt download
+[WARN ] You have requested to use P0.09 and P0.10 pins for NFC, by not enabling the Cargo feature `nfc-pins-as-gpio`.
+[INFO ] iree-embedded KWS int8 timing: 1000 timed invokes (timing_int8 src/bin/timing_int8.rs:33)
+[INFO ] instruction cache off: last invoke classified: yes (expected 'yes') (timing_int8 src/bin/timing_int8.rs:101)
+[INFO ] logits [-5.870843, -1.6511745, 9.815315, -1.6511745] (reference [-5.8708, -1.6512, 9.8153, -1.6512]), within one step: true (timing_int8 src/bin/timing_int8.rs:106)
+[INFO ] cycles: min 7285466 median 7285466 p99 7285466 max 7285466 (timing_int8 src/bin/timing_int8.rs:114)
+[INFO ] microseconds at 64000000 Hz: min 113835 median 113835 p99 113835 max 113835 (timing_int8 src/bin/timing_int8.rs:121)
+[INFO ] instruction cache on: last invoke classified: yes (expected 'yes') (timing_int8 src/bin/timing_int8.rs:101)
+[INFO ] logits [-5.870843, -1.6511745, 9.815315, -1.6511745] (reference [-5.8708, -1.6512, 9.8153, -1.6512]), within one step: true (timing_int8 src/bin/timing_int8.rs:106)
+[INFO ] cycles: min 6231589 median 6231589 p99 6231589 max 6231613 (timing_int8 src/bin/timing_int8.rs:114)
+[INFO ] microseconds at 64000000 Hz: min 97368 median 97368 p99 97368 max 97368 (timing_int8 src/bin/timing_int8.rs:121)

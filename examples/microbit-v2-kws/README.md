@@ -263,12 +263,12 @@ and -1.6511745. They are within one quantisation step of the reference.
 
 | Instruction cache | Cycles (min = median = p99) | Time at 64 MHz | Max |
 |---|---:|---:|---:|
-| off | 7,279,930 | 113.75 ms | equals min |
-| on | 6,233,349 | 97.40 ms | min + 6 |
+| off | 7,285,466 | 113.83 ms | equals min |
+| on | 6,231,589 | 97.37 ms | min + 24 |
 
-The run did 10 warm-up invokes and 1000 timed invokes per setting. Three runs gave the same numbers. The raw logs are in `results/` (`timing_int8-run1.log` to `-run3.log`). The table with TFLite-Micro is in [`../microbit-v2-tflm/results/README.md`](../microbit-v2-tflm/results/README.md).
+The run did 10 warm-up invokes and 1000 timed invokes per setting. Three runs gave the same numbers (prebuilt v0.1.2 runtime). The raw logs are in `results/` (`timing_int8-runv012-2.log` to `-runv012-4.log`). The runs with the v0.1.1 runtime (`-run1.log` to `-run3.log`) gave 7,279,930 cycles with the cache off and 6,233,349 with the cache on. The table with TFLite-Micro is in [`../microbit-v2-tflm/results/README.md`](../microbit-v2-tflm/results/README.md).
 
-The flash figure depends on which IREE runtime library is linked. The prebuilt v0.1.1 download gives 386,648 bytes. A local `.iree/build/mcu` build gives 391,368 bytes. The three runs above used the prebuilt download: the worktree has no `.iree` folder, no `IREE_RUNTIME_DIR` or `IREE_SRC_DIR` was set, and the build unpacked the download into its output folder. The log header of any later run names the source.
+The flash figure depends on which IREE runtime library is linked. The prebuilt v0.1.2 download gives 260,344 bytes. The prebuilt v0.1.1 download gave 386,648 bytes. A local `.iree/build/mcu` build with the new flags gives 264,480 bytes. The three runs above used the prebuilt v0.1.2 download: no `IREE_RUNTIME_DIR` or `IREE_SRC_DIR` was set.
 
 - Files: `models/int8/` (see its `README.md` for the source, the commit and
   the SHA-256 values) and the compiled `models/micro_speech_int8.{o,h,vmfb}`.
@@ -289,8 +289,8 @@ The flash figure depends on which IREE runtime library is linked. The prebuilt v
   pass it prints the label and the four logits. The reference logits are
   -5.8708, -1.6512, 9.8153 and -1.6512 (label yes).
 
-Sizes of `timing_int8` (release build, `scripts/size-report.sh`): flash
-386,648 bytes, static RAM 65,912 bytes (including the 56 KB arena). The
+Sizes of `timing_int8` (release build, `scripts/size-report.sh`, prebuilt v0.1.2
+runtime): flash 260,344 bytes, static RAM 65,544 bytes (including the 56 KB arena). The
 compiled files are 18,176 bytes (`.o`) and 23,689 bytes (`.vmfb`).
 
 Board timing, arena size and the comparison with TFLite-Micro: [`../microbit-v2-tflm/results/README.md`](../microbit-v2-tflm/results/README.md). The logs of `timing_int8` are in `results/`.
@@ -316,7 +316,7 @@ The runtime-only share is the runtime group divided by the flash total. Limits
 of the method: it uses names, not object files. TFLite-Micro helper functions
 that the kernels call (for example the quantisation set-up) count as runtime.
 
-Result for `timing_int8` (flash 386,648 bytes, static RAM 65,912 bytes):
+Result for `timing_int8` with the prebuilt v0.1.1 runtime (flash 386,648 bytes, static RAM 65,912 bytes):
 
 | Group | Flash bytes | Flash share | Static RAM bytes |
 |---|---:|---:|---:|
@@ -358,9 +358,13 @@ local runtime build from the same IREE commit (`timing_int8`, `--features int8`)
 | prebuilt v0.1.1 download | 386,648 | 65,912 | 222,612 | 84,438 |
 | local build, old flags | 391,368 | 65,912 | 227,130 | 84,634 |
 | local build, new flags | 264,480 | 65,544 | 144,564 | 50,849 |
+| prebuilt v0.1.2 download | 260,344 | 65,544 | 140,548 | 50,705 |
 
-The new flags apply to a new prebuilt runtime release only. The timing and the
-logits of the new build are not measured on the board yet.
+The new flags reach the firmware through the prebuilt runtime release v0.1.2. The
+board runs of that build gave the same logits and 6,231,589 cycles with the cache
+on, which is 0.03 percent below the v0.1.1 value (`results/timing_int8-runv012-2.log`
+to `-runv012-4.log`). The split of the v0.1.2 build is in
+`results/size-report-v0.1.2.txt`.
 
 Host checks:
 
