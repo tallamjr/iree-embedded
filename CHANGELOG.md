@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-11-09
+
+### Changed
+
+- The prebuilt Cortex-M runtime is built with one section per function. The
+  linker now drops unused code. A local build of the micro:bit v2 int8
+  firmware shrinks from 391,368 B to 264,480 B of flash. Logits are
+  unchanged and cycles stay within 1 percent.
+
+### Added
+
+- `Tensor::from_i8` for int8 models.
+- Timing and size scripts, an int8 model, and a TFLite-Micro baseline
+  example for the micro:bit v2.
+- Nano 33 BLE Sense timing firmware that prints over USB serial (not yet
+  tested on a Nano).
+
 ## [0.1.1] - 2026-06-12
 
 ### Fixed
