@@ -8,7 +8,7 @@ const IREE_SHA: &str = "e4a3b0405d7d23554da26403658d0e8c3c5ecf25";
 // The GitHub release hosting the runtime artefacts the checksums below pin.
 // It tracks the runtime, not the crate version: a crate release that leaves
 // the runtime untouched (e.g. 0.1.1) keeps downloading from the older tag.
-const RELEASE_TAG: &str = "v0.1.0";
+const RELEASE_TAG: &str = "v0.1.2";
 const RELEASE_BASE: &str = "https://github.com/tallamjr/iree-embedded/releases/download";
 
 // Pinned sha256 of each downloadable artefact. Compiled in so a missing file is
