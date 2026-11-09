@@ -63,7 +63,7 @@ Reading the numbers (cache on): TFLM reference takes 2.96 times the cycles of IR
 - There is one input clip ("yes"), one board and one build of each firmware.
 - The IREE timed region is `ctx.invoke`. It includes the IREE call and output handling that the TFLM `invoke` does not have.
 - The IREE bytecode verifier is linked and adds flash (about 95 KB, see "Symbol split" in the kws README).
-- The IREE bytecode and runtime are linked with newlib `printf` and `libm`. The `libc` group of `timing_int8` is 84,438 bytes (84 KB). I did not test why it is this large.
+- The IREE bytecode and runtime are linked with newlib `printf` and `libm`. The `libc` group of `timing_int8` is 84,438 bytes (84 KB). The cause is in "Symbol split" in the kws README: the runtime had one section per object file. A runtime built with `-ffunction-sections` gives a libc group of 50,849 bytes. That build is not yet measured on the board.
 - TFLM CMSIS-NN does not use SIMD code in the depthwise layer. The model has 1 input channel and a channel multiplier of 8. The wrapper then calls the generic `arm_depthwise_conv_s8`, which is scalar C. Only the fully connected layer uses the DSP code.
 - The TFLM runtime-only share counts `tflite::`, `flatbuffers::` and `tflm_*` symbols that are not kernels. Grouping rules: `../../microbit-v2-kws/scripts/symbol-split.sh`.
 - Static RAM at the smallest arena is for a build of the timing firmware with that arena. The timing runs themselves used the default arenas (16,384 and 57,344 bytes).

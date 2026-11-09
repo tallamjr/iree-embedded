@@ -331,7 +331,36 @@ Result for `timing_int8` (flash 386,648 bytes, static RAM 65,912 bytes):
 The IREE runtime includes the bytecode verifier and disassembler
 (`iree_vm_bytecode_function_verify`, `iree_vm_bytecode_disassemble_op_impl`,
 95 KB together). The libc group holds newlib printf, strtod and libm code
-plus the rest of newlib. The reason these link is not tested.
+plus the rest of newlib.
+
+Cause (linker map of the local `.iree/build/mcu` build, issue
+https://github.com/tallamjr/iree-embedded/issues/19): the IREE runtime was
+built without `-ffunction-sections`. Each object file was one section, so the
+linker kept every function of an object that the firmware used. The map shows
+these chains:
+
+- `disassembler.c.obj`, `allocator.c.obj` and `buffer_view_util.c.obj` call
+  `fprintf`. That pulls in newlib `_vfprintf_r`, `_dtoa_r` and `strtod`.
+  Nothing in the firmware calls the `fprintf` users
+  (`iree_vm_bytecode_trace_disassembly`, `iree_hal_allocator_statistics_fprint`,
+  `iree_hal_buffer_view_fprint`).
+- `string_view.c.obj` calls `strtod`, `strtof` and `strtol`.
+- `dispatch.c.obj` (the bytecode interpreter) calls `pow`, `powf`, `erf`,
+  `expm1`, `log1p` and `atan` for the f32 and f64 extension opcodes. That pulls
+  in the libm code.
+
+`toolchains/arm-*.cmake` now compile the runtime with `-ffunction-sections
+-fdata-sections`, so the Rust linker drops these functions. Measured with a
+local runtime build from the same IREE commit (`timing_int8`, `--features int8`):
+
+| Runtime library | Flash bytes | Static RAM bytes | runtime group | libc group |
+|---|---:|---:|---:|---:|
+| prebuilt v0.1.1 download | 386,648 | 65,912 | 222,612 | 84,438 |
+| local build, old flags | 391,368 | 65,912 | 227,130 | 84,634 |
+| local build, new flags | 264,480 | 65,544 | 144,564 | 50,849 |
+
+The new flags apply to a new prebuilt runtime release only. The timing and the
+logits of the new build are not measured on the board yet.
 
 Host checks:
 
